@@ -58,6 +58,12 @@ Full explanation of modules is documented in the component-specific markdown fil
 
 We welcome contributions. Please read CONTRIBUTING.md for guidelines. Follow the PR template for consistent pull requests. Run tests before submitting and keep changes modular and documented.
 
+## Contributors
+
+Thanks to all the amazing people who have contributed to this project:
+
+[![Contributors](https://contrib.rocks/image?repo=prashanta0234/vpsmyth)](https://github.com/prashanta0234/vpsmyth/graphs/contributors)
+
 ## Documentation
 
 * Server and API: cmd/server/server.md
