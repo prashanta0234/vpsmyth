@@ -1,0 +1,259 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"path/filepath"
+
+	"github.com/prashanta0234/vpsmyth/internal/deploy"
+	"github.com/prashanta0234/vpsmyth/internal/stats"
+	"github.com/prashanta0234/vpsmyth/internal/system"
+)
+
+// DeployRequest represents the expected JSON body for the /apps/deploy endpoint.
+type DeployRequest struct {
+	AppName   string            `json:"appName"`
+	Category  string            `json:"category"`
+	Framework string            `json:"framework"`
+	RepoURL   string            `json:"repoURL"`
+	Port      int               `json:"port"`
+	Env       map[string]string `json:"env"`
+}
+
+func main() {
+	uiDir := "ui"
+	
+	http.HandleFunc("/apps/deploy", handleDeploy)
+	http.HandleFunc("/apps", handleListApps)
+	http.HandleFunc("/apps/stop", handleAppAction("stop"))
+	http.HandleFunc("/apps/start", handleAppAction("start"))
+	http.HandleFunc("/apps/restart", handleAppAction("restart"))
+	http.HandleFunc("/apps/delete", handleAppAction("delete"))
+	http.HandleFunc("/apps/update-env", handleUpdateEnv)
+	http.HandleFunc("/apps/logs", handleAppLogs)
+	http.HandleFunc("/system/install-node", handleInstallNode)
+	http.HandleFunc("/system/install-docker", handleInstallTool("Docker", system.InstallDocker))
+	http.HandleFunc("/system/install-go", handleInstallTool("Go", system.InstallGo))
+	http.HandleFunc("/system/status", handleSystemStatus)
+	http.HandleFunc("/stats", handleStats)
+
+	// SPA Routing: Serve index.html for unknown routes
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		path := filepath.Join(uiDir, r.URL.Path)
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			http.ServeFile(w, r, filepath.Join(uiDir, "index.html"))
+			return
+		}
+		http.FileServer(http.Dir(uiDir)).ServeHTTP(w, r)
+	})
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	fmt.Printf("VPSMyth server starting on http://localhost:%s\n", port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
+}
+
+func handleDeploy(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req DeployRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.AppName == "" || req.RepoURL == "" || req.Port == 0 {
+		http.Error(w, "Missing required fields", http.StatusBadRequest)
+		return
+	}
+
+	fmt.Printf("Received deployment request for: %s\n", req.AppName)
+
+	err := deploy.DeployNodeDocker(req.AppName, req.Category, req.Framework, req.RepoURL, req.Port, req.Env)
+	if err != nil {
+		fmt.Printf("Deployment failed: %v\n", err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Deployment started successfully", "appName": req.AppName})
+}
+
+func handleStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	s, err := stats.GetStats()
+	if err != nil {
+		http.Error(w, "Failed to get stats: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(s)
+}
+
+func handleInstallNode(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	fmt.Println("Starting Node.js installation on host...")
+	err := system.InstallNode()
+	if err != nil {
+		fmt.Printf("Node.js installation failed: %v\n", err)
+		http.Error(w, "Failed to install Node.js: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Node.js installed successfully on host"})
+}
+
+func handleSystemStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	status := system.GetSystemStatus()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(status)
+}
+
+func handleInstallTool(name string, installFunc func() error) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		fmt.Printf("Starting %s installation on host...\n", name)
+		err := installFunc()
+		if err != nil {
+			fmt.Printf("%s installation failed: %v\n", name, err)
+			http.Error(w, fmt.Sprintf("Failed to install %s: %v", name, err), http.StatusInternalServerError)
+			return
+		}
+
+		fmt.Printf("%s installed successfully!\n", name)
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"message": fmt.Sprintf("%s installed successfully on host", name)})
+	}
+}
+
+func handleListApps(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	apps, err := deploy.ListApps()
+	if err != nil {
+		http.Error(w, "Failed to list apps: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"apps": apps})
+}
+
+func handleAppAction(action string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req struct {
+			AppName string `json:"appName"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		var err error
+		switch action {
+		case "stop":
+			err = deploy.StopApp(req.AppName)
+		case "start":
+			err = deploy.StartApp(req.AppName)
+		case "restart":
+			err = deploy.RestartApp(req.AppName)
+		case "delete":
+			err = deploy.DeleteApp(req.AppName)
+		}
+
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to %s app: %v", action, err), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"message": fmt.Sprintf("App %s successfully", action)})
+	}
+}
+
+func handleUpdateEnv(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		AppName string            `json:"appName"`
+		Env     map[string]string `json:"env"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	err := deploy.UpdateAppEnv(req.AppName, req.Env)
+	if err != nil {
+		http.Error(w, "Failed to update environment variables: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Environment variables updated and app restarted successfully"})
+}
+
+func handleAppLogs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	appName := r.URL.Query().Get("appName")
+	if appName == "" {
+		http.Error(w, "Missing appName parameter", http.StatusBadRequest)
+		return
+	}
+
+	logs, err := deploy.GetLogs(appName)
+	if err != nil {
+		http.Error(w, "Failed to get logs: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"logs": logs})
+}
