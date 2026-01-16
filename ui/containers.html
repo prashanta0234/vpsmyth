@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VPSMyth | System Tools</title>
+    <title>VPSMyth | Docker Containers</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -34,7 +34,7 @@
                 </svg>
                 <span>Applications</span>
             </a>
-            <a href="containers.html" class="nav-item">
+            <a href="containers.html" class="nav-item active">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
@@ -42,7 +42,7 @@
                 </svg>
                 <span>Docker Containers</span>
             </a>
-            <a href="system.html" class="nav-item active">
+            <a href="system.html" class="nav-item">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924-1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
@@ -62,7 +62,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                 </svg>
-                <input type="text" placeholder="Search tools...">
+                <input type="text" placeholder="Search containers..." id="container-search">
             </div>
             <div class="actions">
                 <button class="theme-toggle" id="theme-toggle" title="Toggle Theme">
@@ -85,72 +85,53 @@
         </div>
 
         <div class="section-header">
-            <h2 class="section-title">System Tools</h2>
+            <h2 class="section-title">Docker Containers</h2>
+            <button class="btn-primary" id="refresh-containers">
+                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                    </path>
+                </svg>
+                Refresh
+            </button>
         </div>
 
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-header">
-                    <div class="stat-label">Node.js</div>
-                    <div class="stat-icon">
-                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                        </svg>
-                    </div>
-                </div>
-                <div class="stat-value" id="node-version">Checking...</div>
-                <p class="stat-label" style="margin-top: 0.5rem;">Host System Runtime</p>
-                <button class="btn-primary" id="install-node-btn"
-                    style="margin-top: 1.5rem; width: 100%; justify-content: center;">
-                    <span id="install-text">Install Node.js 20.x</span>
-                    <div class="loading-spinner" id="install-spinner"></div>
-                </button>
-            </div>
+        <div id="containers-list" class="apps-grid">
+            <!-- Containers will be rendered here by containers.js -->
+        </div>
 
-            <div class="stat-card">
-                <div class="stat-header">
-                    <div class="stat-label">Docker</div>
-                    <div class="stat-icon">
-                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
-                            </path>
-                        </svg>
-                    </div>
-                </div>
-                <div class="stat-value" id="docker-status">Checking...</div>
-                <p class="stat-label" style="margin-top: 0.5rem;">Container Engine</p>
-                <button class="btn-primary" id="install-docker-btn"
-                    style="margin-top: 1.5rem; width: 100%; justify-content: center;">
-                    <span id="install-docker-text">Install Docker</span>
-                    <div class="loading-spinner" id="install-docker-spinner"></div>
-                </button>
-            </div>
-
-            <div class="stat-card">
-                <div class="stat-header">
-                    <div class="stat-label">Go</div>
-                    <div class="stat-icon">
-                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
-                        </svg>
-                    </div>
-                </div>
-                <div class="stat-value" id="go-status">Checking...</div>
-                <p class="stat-label" style="margin-top: 0.5rem;">Go Runtime</p>
-                <button class="btn-primary" id="install-go-btn"
-                    style="margin-top: 1.5rem; width: 100%; justify-content: center;">
-                    <span id="install-go-text">Install Go 1.21.x</span>
-                    <div class="loading-spinner" id="install-go-spinner"></div>
-                </button>
-            </div>
+        <div id="empty-state" class="empty-state" style="display: none;">
+            <svg class="empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
+                </path>
+            </svg>
+            <h3 class="empty-state-title">No containers found</h3>
+            <p class="empty-state-desc">There are no Docker containers on this system.</p>
         </div>
     </main>
 
+    <!-- Logs Modal -->
+    <div class="modal-overlay" id="logs-modal">
+        <div class="modal" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Container Logs</h2>
+                <button class="close-modal" id="close-logs-modal">
+                    <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+            <div class="logs-container" id="logs-content"
+                style="background: #1e293b; color: #f8fafc; padding: 1rem; border-radius: 10px; font-family: monospace; height: 400px; overflow-y: auto; white-space: pre-wrap; font-size: 0.875rem;">
+                Loading logs...
+            </div>
+        </div>
+    </div>
+
     <script src="js/theme.js"></script>
-    <script src="js/system.js"></script>
+    <script src="js/containers.js"></script>
 </body>
 
 </html>

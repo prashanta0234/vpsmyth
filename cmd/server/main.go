@@ -38,6 +38,12 @@ func main() {
 	http.HandleFunc("/system/install-docker", handleInstallTool("Docker", system.InstallDocker))
 	http.HandleFunc("/system/install-go", handleInstallTool("Go", system.InstallGo))
 	http.HandleFunc("/system/status", handleSystemStatus)
+	http.HandleFunc("/system/containers", handleListContainers)
+	http.HandleFunc("/system/containers/stop", handleContainerAction("stop"))
+	http.HandleFunc("/system/containers/start", handleContainerAction("start"))
+	http.HandleFunc("/system/containers/restart", handleContainerAction("restart"))
+	http.HandleFunc("/system/containers/delete", handleContainerAction("delete"))
+	http.HandleFunc("/system/containers/logs", handleContainerLogs)
 	http.HandleFunc("/stats", handleStats)
 
 	// SPA Routing: Serve index.html for unknown routes
@@ -135,6 +141,81 @@ func handleSystemStatus(w http.ResponseWriter, r *http.Request) {
 	status := system.GetSystemStatus()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(status)
+}
+
+func handleListContainers(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	containers, err := system.ListContainers()
+	if err != nil {
+		http.Error(w, "Failed to list containers: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"containers": containers})
+}
+
+func handleContainerAction(action string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req struct {
+			ID string `json:"id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		var err error
+		switch action {
+		case "stop":
+			err = system.StopContainer(req.ID)
+		case "start":
+			err = system.StartContainer(req.ID)
+		case "restart":
+			err = system.RestartContainer(req.ID)
+		case "delete":
+			err = system.DeleteContainer(req.ID)
+		}
+
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to %s container: %v", action, err), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"message": fmt.Sprintf("Container %s successfully", action)})
+	}
+}
+
+func handleContainerLogs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		http.Error(w, "Missing id parameter", http.StatusBadRequest)
+		return
+	}
+
+	logs, err := system.GetContainerLogs(id)
+	if err != nil {
+		http.Error(w, "Failed to get logs: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"logs": logs})
 }
 
 func handleInstallTool(name string, installFunc func() error) http.HandlerFunc {

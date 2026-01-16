@@ -507,6 +507,16 @@ body.dark .status-running {
     color: #4ade80;
 }
 
+.status-stopped {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+body.dark .status-stopped {
+    background-color: rgba(153, 27, 27, 0.2);
+    color: #f87171;
+}
+
 .app-details {
     color: var(--text-secondary);
     font-size: 0.875rem;
