@@ -1,0 +1,19 @@
+{
+  "apps": [
+    {
+      "name": "my-node-app",
+      "port": 3000,
+      "env": {
+        "NODE_ENV": "production",
+        "DB_URL": "sqlite://data.db"
+      }
+    },
+    {
+      "name": "my-go-app",
+      "port": 8080,
+      "env": {
+        "DEBUG": "false"
+      }
+    }
+  ]
+}
