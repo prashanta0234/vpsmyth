@@ -3,7 +3,6 @@ package db
 import (
 	"database/sql"
 	"fmt"
-	"log"
 
 	_ "modernc.org/sqlite"
 )
@@ -11,11 +10,11 @@ import (
 var DB *sql.DB
 
 // InitDB initializes the SQLite database and creates necessary tables.
-func InitDB() {
+func InitDB(dbPath string) error {
 	var err error
-	DB, err = sql.Open("sqlite", "vpsmyth.db")
+	DB, err = sql.Open("sqlite", dbPath)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	createTables := `
@@ -36,10 +35,11 @@ func InitDB() {
 
 	_, err = DB.Exec(createTables)
 	if err != nil {
-		log.Fatal(fmt.Errorf("failed to create tables: %w", err))
+		return fmt.Errorf("failed to create tables: %w", err)
 	}
 
 	fmt.Println("Database initialized successfully.")
+	return nil
 }
 
 // GetDockerHubCredentials retrieves DockerHub username and password.
