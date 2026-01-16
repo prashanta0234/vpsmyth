@@ -93,3 +93,12 @@ func InstallGo() error {
 	}
 	return nil
 }
+
+// LoginDockerHub authenticates with DockerHub using the provided credentials.
+func LoginDockerHub(username, password string) error {
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("echo %s | docker login --username %s --password-stdin", password, username))
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("docker login failed: %w", err)
+	}
+	return nil
+}

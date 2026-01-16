@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/prashanta0234/vpsmyth/internal/db"
 	"github.com/prashanta0234/vpsmyth/internal/deploy"
 	"github.com/prashanta0234/vpsmyth/internal/stats"
 	"github.com/prashanta0234/vpsmyth/internal/system"
@@ -15,15 +16,18 @@ import (
 
 // DeployRequest represents the expected JSON body for the /apps/deploy endpoint.
 type DeployRequest struct {
-	AppName   string            `json:"appName"`
-	Category  string            `json:"category"`
-	Framework string            `json:"framework"`
-	RepoURL   string            `json:"repoURL"`
-	Port      int               `json:"port"`
-	Env       map[string]string `json:"env"`
+	AppName    string            `json:"appName"`
+	DeployType string            `json:"deployType"` // "git" or "image"
+	Category   string            `json:"category"`
+	Framework  string            `json:"framework"`
+	RepoURL    string            `json:"repoURL"`
+	ImageName  string            `json:"imageName"`
+	Port       int               `json:"port"`
+	Env        map[string]string `json:"env"`
 }
 
 func main() {
+	db.InitDB()
 	uiDir := "ui"
 	
 	http.HandleFunc("/apps/deploy", handleDeploy)
@@ -43,7 +47,11 @@ func main() {
 	http.HandleFunc("/system/containers/start", handleContainerAction("start"))
 	http.HandleFunc("/system/containers/restart", handleContainerAction("restart"))
 	http.HandleFunc("/system/containers/delete", handleContainerAction("delete"))
+	http.HandleFunc("/system/containers/pull-run", handlePullRunContainer)
 	http.HandleFunc("/system/containers/logs", handleContainerLogs)
+	http.HandleFunc("/system/settings/dockerhub", handleDockerHubSettings)
+	http.HandleFunc("/system/settings/github", handleGitHubSettings)
+	http.HandleFunc("/system/settings/secrets", handleSecretsSettings)
 	http.HandleFunc("/stats", handleStats)
 
 	// SPA Routing: Serve index.html for unknown routes
@@ -84,7 +92,24 @@ func handleDeploy(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Printf("Received deployment request for: %s\n", req.AppName)
 
-	err := deploy.DeployNodeDocker(req.AppName, req.Category, req.Framework, req.RepoURL, req.Port, req.Env)
+	// Inject global secrets
+	globalSecrets, _ := db.GetGlobalSecrets()
+	if req.Env == nil {
+		req.Env = make(map[string]string)
+	}
+	for k, v := range globalSecrets {
+		if _, exists := req.Env[k]; !exists {
+			req.Env[k] = v
+		}
+	}
+
+	var err error
+	if req.DeployType == "image" {
+		err = deploy.DeployFromImage(req.AppName, req.ImageName, req.Port, req.Env)
+	} else {
+		err = deploy.DeployNodeDocker(req.AppName, req.Category, req.Framework, req.RepoURL, req.Port, req.Env)
+	}
+
 	if err != nil {
 		fmt.Printf("Deployment failed: %v\n", err)
 		w.Header().Set("Content-Type", "application/json")
@@ -196,6 +221,53 @@ func handleContainerAction(action string) http.HandlerFunc {
 	}
 }
 
+func handlePullRunContainer(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ImageName     string            `json:"imageName"`
+		ContainerName string            `json:"containerName"`
+		Port          int               `json:"port"`
+		Env           map[string]string `json:"env"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.ImageName == "" || req.ContainerName == "" {
+		http.Error(w, "Image name and container name are required", http.StatusBadRequest)
+		return
+	}
+
+	// Inject global secrets
+	globalSecrets, _ := db.GetGlobalSecrets()
+	if req.Env == nil {
+		req.Env = make(map[string]string)
+	}
+	for k, v := range globalSecrets {
+		if _, exists := req.Env[k]; !exists {
+			req.Env[k] = v
+		}
+	}
+
+	err := system.PullAndRunImage(req.ImageName, req.ContainerName, req.Port, req.Env)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Container pulled and started successfully"})
+}
+
 func handleContainerLogs(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -216,6 +288,114 @@ func handleContainerLogs(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"logs": logs})
+}
+
+func handleDockerHubSettings(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		username, _, err := db.GetDockerHubCredentials()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]string{"username": username})
+		return
+	}
+
+	if r.Method == http.MethodPost {
+		var req struct {
+			Username string `json:"username"`
+			Password string `json:"password"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request", http.StatusBadRequest)
+			return
+		}
+
+		if err := db.SaveDockerHubCredentials(req.Username, req.Password); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Attempt docker login
+		if err := system.LoginDockerHub(req.Username, req.Password); err != nil {
+			http.Error(w, "Failed to login to DockerHub: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+}
+
+func handleGitHubSettings(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		token, err := db.GetGitHubCredentials()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		// Return masked token or just existence
+		hasToken := token != ""
+		json.NewEncoder(w).Encode(map[string]interface{}{"hasToken": hasToken})
+		return
+	}
+
+	if r.Method == http.MethodPost {
+		var req struct {
+			Token string `json:"token"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request", http.StatusBadRequest)
+			return
+		}
+
+		if err := db.SaveGitHubCredentials(req.Token); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+}
+
+func handleSecretsSettings(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		secrets, err := db.GetGlobalSecrets()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(secrets)
+		return
+	}
+
+	if r.Method == http.MethodPost {
+		var req struct {
+			Action string `json:"action"` // "save" or "delete"
+			Key    string `json:"key"`
+			Value  string `json:"value"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request", http.StatusBadRequest)
+			return
+		}
+
+		var err error
+		if req.Action == "delete" {
+			err = db.DeleteSecret(req.Key)
+		} else {
+			err = db.SaveSecret(req.Key, req.Value)
+		}
+
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 }
 
 func handleInstallTool(name string, installFunc func() error) http.HandlerFunc {

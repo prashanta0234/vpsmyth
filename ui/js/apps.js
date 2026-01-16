@@ -130,6 +130,23 @@ document.addEventListener('DOMContentLoaded', () => {
     closeModalBtn.addEventListener('click', () => toggleModal(false));
     cancelBtn.addEventListener('click', () => toggleModal(false));
 
+    // Deployment Type Toggle
+    const deployTypeRadios = document.getElementsByName('deployType');
+    const gitFields = document.getElementById('git-fields');
+    const imageFields = document.getElementById('image-fields');
+
+    deployTypeRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if (e.target.value === 'git') {
+                gitFields.style.display = 'block';
+                imageFields.style.display = 'none';
+            } else {
+                gitFields.style.display = 'none';
+                imageFields.style.display = 'block';
+            }
+        });
+    });
+
     // Logs Modal Close
     document.getElementById('close-logs-modal').addEventListener('click', () => {
         document.getElementById('logs-modal').style.display = 'none';
@@ -238,9 +255,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const data = {
             appName: formData.get('appName'),
+            deployType: formData.get('deployType'),
             category: formData.get('category'),
             framework: formData.get('framework'),
             repoURL: formData.get('repoURL'),
+            imageName: formData.get('imageName'),
             port: parseInt(formData.get('port')),
             env: env
         };

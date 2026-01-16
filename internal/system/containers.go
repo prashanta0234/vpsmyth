@@ -89,3 +89,29 @@ func GetContainerLogs(id string) (string, error) {
 	}
 	return string(out), nil
 }
+
+// PullAndRunImage pulls a Docker image and runs it as a container.
+func PullAndRunImage(imageName, containerName string, port int, env map[string]string) error {
+	// 1. Pull the image
+	pullCmd := exec.Command("docker", "pull", imageName)
+	if err := pullCmd.Run(); err != nil {
+		return fmt.Errorf("failed to pull image %s: %w", imageName, err)
+	}
+
+	// 2. Run the container
+	runArgs := []string{"run", "-d", "--name", containerName, "--label", "managed-by=vpsmyth"}
+	for k, v := range env {
+		runArgs = append(runArgs, "-e", fmt.Sprintf("%s=%s", k, v))
+	}
+	if port > 0 {
+		runArgs = append(runArgs, "-p", fmt.Sprintf("%d:%d", port, port))
+	}
+	runArgs = append(runArgs, imageName)
+
+	runCmd := exec.Command("docker", runArgs...)
+	if output, err := runCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to run container: %s: %w", string(output), err)
+	}
+
+	return nil
+}

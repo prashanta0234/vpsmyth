@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/prashanta0234/vpsmyth/internal/db"
 )
 
 // DeploymentMetadata stores information about a deployed application.
@@ -17,6 +19,8 @@ type DeploymentMetadata struct {
 	Port        int               `json:"port"`
 	Status      string            `json:"status"`
 	Env         map[string]string `json:"env"`
+	RepoURL     string            `json:"repo_url"`
+	Framework   string            `json:"framework"`
 }
 
 // DeployNodeDocker deploys a Node.js application using Docker.
@@ -34,7 +38,16 @@ func DeployNodeDocker(appName string, category string, framework string, repoURL
 	}
 
 	fmt.Printf("Cloning repository: %s\n", repoURL)
-	cloneCmd := exec.Command("git", "clone", repoURL, repoDir)
+	
+	// Fetch GitHub token for private repos
+	token, _ := db.GetGitHubCredentials()
+	cloneURL := repoURL
+	if token != "" && strings.Contains(repoURL, "github.com") {
+		// Inject token into URL: https://<token>@github.com/user/repo
+		cloneURL = strings.Replace(repoURL, "https://github.com", fmt.Sprintf("https://%s@github.com", token), 1)
+	}
+
+	cloneCmd := exec.Command("git", "clone", cloneURL, repoDir)
 	if _, err := os.Stat(filepath.Join(repoDir, ".git")); err == nil {
 		cloneCmd = exec.Command("git", "-C", repoDir, "pull")
 	}
@@ -103,6 +116,8 @@ func DeployNodeDocker(appName string, category string, framework string, repoURL
 		Port:        port,
 		Status:      "running",
 		Env:         env,
+		RepoURL:     repoURL,
+		Framework:   framework,
 	}
 	metaData, err := json.MarshalIndent(meta, "", "  ")
 	if err != nil {
@@ -113,6 +128,48 @@ func DeployNodeDocker(appName string, category string, framework string, repoURL
 	}
 
 	fmt.Printf("Successfully deployed %s (Container ID: %s)\n", appName, containerID)
+	return nil
+}
+
+// DeployFromImage pulls a Docker image and runs it as a container.
+func DeployFromImage(appName, imageName string, port int, env map[string]string) error {
+	// 1. Pull the image
+	pullCmd := exec.Command("docker", "pull", imageName)
+	if err := pullCmd.Run(); err != nil {
+		return fmt.Errorf("failed to pull image %s: %w", imageName, err)
+	}
+
+	// 2. Run the container
+	runArgs := []string{"run", "-d", "--name", appName, "--label", "managed-by=vpsmyth"}
+	for k, v := range env {
+		runArgs = append(runArgs, "-e", fmt.Sprintf("%s=%s", k, v))
+	}
+	if port > 0 {
+		runArgs = append(runArgs, "-p", fmt.Sprintf("%d:%d", port, port))
+	}
+	runArgs = append(runArgs, imageName)
+
+	runCmd := exec.Command("docker", runArgs...)
+	if err := runCmd.Run(); err != nil {
+		return fmt.Errorf("failed to run container: %w", err)
+	}
+
+	// 3. Save metadata
+	meta := DeploymentMetadata{
+		AppName:   appName,
+		RepoURL:   "Image: " + imageName,
+		Port:      port,
+		Env:       env,
+		Status:    "Running",
+		Framework: "Docker Image",
+	}
+
+	metaDir := "deployments"
+	os.MkdirAll(metaDir, 0755)
+	metaPath := filepath.Join(metaDir, appName+".json")
+	metaData, _ := json.MarshalIndent(meta, "", "  ")
+	os.WriteFile(metaPath, metaData, 0644)
+
 	return nil
 }
 

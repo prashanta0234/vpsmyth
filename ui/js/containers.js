@@ -117,6 +117,73 @@ document.addEventListener('DOMContentLoaded', () => {
 
     refreshBtn.addEventListener('click', fetchContainers);
 
+    // Pull & Run Modal Logic
+    const pullModal = document.getElementById('pull-modal');
+    const openPullBtn = document.getElementById('open-pull-modal');
+    const closePullBtn = document.getElementById('close-pull-modal');
+    const cancelPullBtn = document.getElementById('cancel-pull');
+    const pullForm = document.getElementById('pull-form');
+
+    const togglePullModal = (show) => {
+        pullModal.style.display = show ? 'flex' : 'none';
+    };
+
+    openPullBtn.addEventListener('click', () => togglePullModal(true));
+    closePullBtn.addEventListener('click', () => togglePullModal(false));
+    cancelPullBtn.addEventListener('click', () => togglePullModal(false));
+
+    pullForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(pullForm);
+        const btnText = document.getElementById('pull-btn-text');
+        const btnSpinner = document.getElementById('pull-btn-spinner');
+        const submitBtn = document.getElementById('submit-pull');
+
+        let env = {};
+        try {
+            const envText = formData.get('env').trim();
+            if (envText) env = JSON.parse(envText);
+        } catch (err) {
+            alert('Invalid JSON in environment variables');
+            return;
+        }
+
+        const data = {
+            imageName: formData.get('imageName'),
+            containerName: formData.get('containerName'),
+            port: parseInt(formData.get('port')) || 0,
+            env: env
+        };
+
+        submitBtn.disabled = true;
+        btnText.style.display = 'none';
+        btnSpinner.style.display = 'block';
+
+        try {
+            const response = await fetch('/system/containers/pull-run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                alert('Container pulled and started successfully!');
+                togglePullModal(false);
+                pullForm.reset();
+                fetchContainers();
+            } else {
+                const result = await response.json();
+                alert('Failed to pull/run container: ' + (result.error || 'Unknown error'));
+            }
+        } catch (err) {
+            alert('Error connecting to server: ' + err.message);
+        } finally {
+            submitBtn.disabled = false;
+            btnText.style.display = 'block';
+            btnSpinner.style.display = 'none';
+        }
+    });
+
     // Initial load
     fetchContainers();
 });
