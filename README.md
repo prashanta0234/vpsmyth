@@ -15,18 +15,18 @@ VPSMyth is a lightweight, all-in-one VPS management platform. It allows you to d
 * One-click SSL and domain setup
 * Lightweight and VPS-friendly (Go backend, minimal memory usage, no Docker required)
 
-## Installation (No Domain Required)
+## Installation
 
 Run this command to install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<your-username>/vpsmyth/main/scripts/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/prashanta0234/vpsmyth/main/scripts/install.sh | sudo bash
 ```
 
 Or if you want to inspect the script first:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<your-username>/vpsmyth/main/scripts/install.sh -o install.sh
+curl -fsSL https://raw.githubusercontent.com/prashanta0234/vpsmyth/main/scripts/install.sh -o install.sh
 less install.sh
 sudo bash install.sh
 ```
