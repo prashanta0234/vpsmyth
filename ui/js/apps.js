@@ -53,12 +53,13 @@ async function handleAction(appName, action) {
     if (action === 'delete' && !confirm(`Are you sure you want to delete ${appName}?`)) return;
 
     try {
-        const response = await fetch(`/apps/${action}`, {
+        const response = await fetch(`/api/apps/${action}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ appName })
         });
 
+        if (response.status === 401) return handleAuthError();
         if (response.ok) {
             alert(`App ${action}ed successfully!`);
             fetchApps();
@@ -78,7 +79,8 @@ async function showLogs(appName) {
     content.textContent = 'Loading logs...';
 
     try {
-        const response = await fetch(`/apps/logs?appName=${appName}`);
+        const response = await fetch(`/api/apps/logs?appName=${appName}`);
+        if (response.status === 401) return handleAuthError();
         if (response.ok) {
             const result = await response.json();
             content.textContent = result.logs || 'No logs found.';
@@ -102,7 +104,8 @@ function showEditEnv(appName, env) {
 
 async function fetchApps() {
     try {
-        const response = await fetch('/apps');
+        const response = await fetch('/api/apps');
+        if (response.status === 401) return handleAuthError();
         if (response.ok) {
             const data = await response.json();
             renderApps(data);
@@ -185,12 +188,13 @@ document.addEventListener('DOMContentLoaded', () => {
         btnSpinner.style.display = 'block';
 
         try {
-            const response = await fetch('/apps/update-env', {
+            const response = await fetch('/api/apps/update-env', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ appName, env })
             });
 
+            if (response.status === 401) return handleAuthError();
             if (response.ok) {
                 alert('Environment variables updated and app restarted!');
                 editEnvModal.style.display = 'none';
@@ -269,12 +273,13 @@ document.addEventListener('DOMContentLoaded', () => {
         btnSpinner.style.display = 'block';
 
         try {
-            const response = await fetch('/apps/deploy', {
+            const response = await fetch('/api/apps/deploy', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
 
+            if (response.status === 401) return handleAuthError();
             if (response.ok) {
                 alert('Deployment started successfully!');
                 toggleModal(false);

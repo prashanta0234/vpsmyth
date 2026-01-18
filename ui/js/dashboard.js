@@ -86,7 +86,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fetchApps = async () => {
         try {
-            const response = await fetch('/apps');
+            const response = await fetch('/api/apps');
+            if (response.status === 401) return handleAuthError();
             if (response.ok) {
                 appConfig = await response.json();
                 renderApps(appConfig);
@@ -98,7 +99,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fetchStats = async () => {
         try {
-            const response = await fetch('/stats');
+            const response = await fetch('/api/stats');
+            if (response.status === 401) return handleAuthError();
             if (response.ok) {
                 const stats = await response.json();
                 const statValues = document.querySelectorAll('.stat-value');
@@ -147,12 +149,13 @@ document.addEventListener('DOMContentLoaded', () => {
         btnSpinner.style.display = 'block';
 
         try {
-            const response = await fetch('/apps/deploy', {
+            const response = await fetch('/api/apps/deploy', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
 
+            if (response.status === 401) return handleAuthError();
             const result = await response.json();
 
             if (response.ok) {

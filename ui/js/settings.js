@@ -13,16 +13,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const fetchSettings = async () => {
         // Fetch DockerHub username
         try {
-            const res = await fetch('/system/settings/dockerhub');
-            if (res.ok) {
-                const data = await res.json();
+            const response = await fetch('/api/system/settings/dockerhub');
+            if (response.status === 401) return handleAuthError();
+            if (response.ok) {
+                const data = await response.json();
                 dockerUser.value = data.username || '';
             }
         } catch (err) { console.error(err); }
 
         // Fetch GitHub status
         try {
-            const res = await fetch('/system/settings/github');
+            const res = await fetch('/api/system/settings/github');
+            if (res.status === 401) return handleAuthError();
             if (res.ok) {
                 const data = await res.json();
                 if (data.hasToken) {
@@ -35,7 +37,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Fetch Secrets
         try {
-            const res = await fetch('/system/settings/secrets');
+            const res = await fetch('/api/system/settings/secrets');
+            if (res.status === 401) return handleAuthError();
             if (res.ok) {
                 const secrets = await res.json();
                 renderSecrets(secrets);
@@ -66,11 +69,12 @@ document.addEventListener('DOMContentLoaded', () => {
         saveDockerBtn.disabled = true;
         saveDockerBtn.textContent = 'Logging in...';
         try {
-            const res = await fetch('/system/settings/dockerhub', {
+            const res = await fetch('/api/system/settings/dockerhub', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: dockerUser.value, password: dockerPass.value })
             });
+            if (res.status === 401) return handleAuthError();
             if (res.ok) {
                 alert('DockerHub credentials saved and logged in successfully!');
             } else {
@@ -87,11 +91,12 @@ document.addEventListener('DOMContentLoaded', () => {
         saveGithubBtn.disabled = true;
         saveGithubBtn.textContent = 'Saving...';
         try {
-            const res = await fetch('/system/settings/github', {
+            const res = await fetch('/api/system/settings/github', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ token: githubToken.value })
             });
+            if (res.status === 401) return handleAuthError();
             if (res.ok) {
                 alert('GitHub token saved successfully!');
                 githubToken.value = '';
@@ -107,11 +112,12 @@ document.addEventListener('DOMContentLoaded', () => {
     addSecretBtn.addEventListener('click', async () => {
         if (!secretKey.value || !secretValue.value) return;
         try {
-            const res = await fetch('/system/settings/secrets', {
+            const res = await fetch('/api/system/settings/secrets', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'save', key: secretKey.value, value: secretValue.value })
             });
+            if (res.status === 401) return handleAuthError();
             if (res.ok) {
                 secretKey.value = '';
                 secretValue.value = '';
@@ -123,11 +129,12 @@ document.addEventListener('DOMContentLoaded', () => {
     window.deleteSecret = async (key) => {
         if (!confirm(`Delete secret ${key}?`)) return;
         try {
-            const res = await fetch('/system/settings/secrets', {
+            const res = await fetch('/api/system/settings/secrets', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'delete', key })
             });
+            if (res.status === 401) return handleAuthError();
             if (res.ok) fetchSettings();
         } catch (err) { alert(err.message); }
     };
