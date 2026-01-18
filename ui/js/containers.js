@@ -8,7 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fetchContainers = async () => {
         try {
-            const response = await fetch('/system/containers');
+            const response = await fetch('/api/system/containers');
+            if (response.status === 401) return handleAuthError();
             if (response.ok) {
                 const data = await response.json();
                 allContainers = data.containers || [];
@@ -63,12 +64,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (action === 'delete' && !confirm(`Are you sure you want to delete container ${id}? This action is irreversible.`)) return;
 
         try {
-            const response = await fetch(`/system/containers/${action}`, {
+            const response = await fetch(`/api/system/containers/${action}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id })
             });
 
+            if (response.status === 401) return handleAuthError();
             if (response.ok) {
                 fetchContainers();
             } else {
@@ -87,7 +89,8 @@ document.addEventListener('DOMContentLoaded', () => {
         content.textContent = 'Loading logs...';
 
         try {
-            const response = await fetch(`/system/containers/logs?id=${id}`);
+            const response = await fetch(`/api/system/containers/logs?id=${id}`);
+            if (response.status === 401) return handleAuthError();
             if (response.ok) {
                 const result = await response.json();
                 content.textContent = result.logs || 'No logs found.';
@@ -160,12 +163,13 @@ document.addEventListener('DOMContentLoaded', () => {
         btnSpinner.style.display = 'block';
 
         try {
-            const response = await fetch('/system/containers/pull-run', {
+            const response = await fetch('/api/system/containers/pull-run', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
 
+            if (response.status === 401) return handleAuthError();
             if (response.ok) {
                 alert('Container pulled and started successfully!');
                 togglePullModal(false);

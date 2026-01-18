@@ -72,14 +72,10 @@ aside {
 .brand-logo {
     width: 32px;
     height: 32px;
-    background-color: var(--accent-primary);
-    border-radius: 8px;
+    object-fit: contain;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 700;
-    color: white;
-    transition: background-color var(--transition-speed);
 }
 
 .brand-name {

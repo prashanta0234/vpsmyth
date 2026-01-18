@@ -16,7 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const checkVersions = async () => {
         try {
-            const response = await fetch('/system/status');
+            const response = await fetch('/api/system/status');
+            if (response.status === 401) return handleAuthError();
             if (response.ok) {
                 const status = await response.json();
 
@@ -53,7 +54,8 @@ document.addEventListener('DOMContentLoaded', () => {
         spinner.style.display = 'block';
 
         try {
-            const response = await fetch(endpoint, { method: 'POST' });
+            const response = await fetch('/api' + endpoint, { method: 'POST' });
+            if (response.status === 401) return handleAuthError();
             if (response.ok) {
                 alert(`${tool} installed successfully on host!`);
                 checkVersions();

@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -30,6 +31,14 @@ func InitDB(dbPath string) error {
 		key TEXT UNIQUE,
 		value TEXT,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE TABLE IF NOT EXISTS users (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		username TEXT UNIQUE,
+		password_hash TEXT,
+		failed_attempts INTEGER DEFAULT 0,
+		locked_until DATETIME,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 	`
 
@@ -103,4 +112,65 @@ func SaveSecret(key, value string) error {
 func DeleteSecret(key string) error {
 	_, err := DB.Exec("DELETE FROM secrets WHERE key = ?", key)
 	return err
+}
+
+// User represents a system user.
+type User struct {
+	ID             int
+	Username       string
+	PasswordHash   string
+	FailedAttempts int
+	LockedUntil    *time.Time
+}
+
+// CreateUser adds a new user to the database.
+func CreateUser(username, passwordHash string) error {
+	_, err := DB.Exec("INSERT INTO users (username, password_hash) VALUES (?, ?)", username, passwordHash)
+	return err
+}
+
+// GetUserByUsername retrieves a user by their username.
+func GetUserByUsername(username string) (User, error) {
+	var user User
+	var lockedUntil sql.NullTime
+	err := DB.QueryRow("SELECT id, username, password_hash, failed_attempts, locked_until FROM users WHERE username = ?", username).Scan(
+		&user.ID, &user.Username, &user.PasswordHash, &user.FailedAttempts, &lockedUntil)
+	if lockedUntil.Valid {
+		user.LockedUntil = &lockedUntil.Time
+	}
+	return user, err
+}
+
+// IncrementFailedAttempts increases the failed login count and locks the account if threshold reached.
+func IncrementFailedAttempts(username string, maxAttempts int, lockoutDuration time.Duration) error {
+	var attempts int
+	err := DB.QueryRow("SELECT failed_attempts FROM users WHERE username = ?", username).Scan(&attempts)
+	if err != nil {
+		return err
+	}
+
+	attempts++
+	var lockedUntil interface{} = nil
+	if attempts >= maxAttempts {
+		lockedUntil = time.Now().Add(lockoutDuration)
+	}
+
+	_, err = DB.Exec("UPDATE users SET failed_attempts = ?, locked_until = ? WHERE username = ?", attempts, lockedUntil, username)
+	return err
+}
+
+// ResetFailedAttempts resets the failed login count and unlocks the account.
+func ResetFailedAttempts(username string) error {
+	_, err := DB.Exec("UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE username = ?", username)
+	return err
+}
+
+// HasUsers checks if any users exist in the database.
+func HasUsers() (bool, error) {
+	var count int
+	err := DB.QueryRow("SELECT COUNT(*) FROM users").Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
