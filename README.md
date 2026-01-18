@@ -13,7 +13,7 @@ VPSMyth is a lightweight, all-in-one VPS management platform. It allows you to d
 * Database management (SQLite and Redis)
 * Port management
 * One-click SSL and domain setup
-* Lightweight and VPS-friendly (Go backend, minimal memory usage, no Docker required)
+* Lightweight and VPS-friendly (Go backend, minimal memory usage, Docker required)
 
 ## Installation
 
