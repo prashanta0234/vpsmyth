@@ -109,15 +109,42 @@ echo "Nginx base router configured."
 #################################
 echo "Building VPSMyth..."
 
-# Ensure we are in the project root (assuming script is run from project root or scripts dir)
-# We'll try to find go.mod
+# Ensure we are in the project root
+#
+# Normal usage:
+#   - Run from project root:          ./scripts/install.sh
+#   - Or from scripts directory:      bash install.sh
+#
+# Remote usage (what you're doing):
+#   curl -fsSL https://raw.githubusercontent.com/prashanta0234/vpsmyth/main/scripts/install.sh | sudo bash
+#
+# For remote usage there is no local checkout, so if go.mod is not found
+# we clone the repository into /opt/vpsmyth-src and build from there.
 if [ -f "go.mod" ]; then
     PROJECT_ROOT="."
 elif [ -f "../go.mod" ]; then
     PROJECT_ROOT=".."
 else
-    echo "Error: Could not find project root (go.mod not found)."
-    exit 1
+    echo "go.mod not found in current or parent directory. Attempting to clone VPSMyth repository..."
+    PROJECT_ROOT="/opt/vpsmyth-src"
+
+    # Ensure git is available
+    if ! command -v git >/dev/null 2>&1; then
+        echo "git not found. Installing git..."
+        sudo apt-get update
+        sudo apt-get install -y git
+    fi
+
+    if [ ! -d "$PROJECT_ROOT/.git" ]; then
+        echo "Cloning repository into $PROJECT_ROOT..."
+        sudo rm -rf "$PROJECT_ROOT"
+        sudo git clone https://github.com/prashanta0234/vpsmyth.git "$PROJECT_ROOT"
+    else
+        echo "Existing repository found at $PROJECT_ROOT, pulling latest changes..."
+        cd "$PROJECT_ROOT"
+        sudo git pull --ff-only
+        cd - >/dev/null 2>&1 || true
+    fi
 fi
 
 cd "$PROJECT_ROOT"
