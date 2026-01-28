@@ -23,6 +23,26 @@ func setupWizard() {
 		return
 	}
 
+	// Check for environment variables for non-interactive setup
+	envUser := os.Getenv("ADMIN_USERNAME")
+	envPass := os.Getenv("ADMIN_PASSWORD")
+
+	if envUser != "" && envPass != "" {
+		fmt.Println("Creating admin user from environment variables...")
+		if len(envPass) < 8 {
+			log.Fatal("Environment variable ADMIN_PASSWORD must be at least 8 characters.")
+		}
+		hash, err := auth.HashPassword(envPass)
+		if err != nil {
+			log.Fatalf("Failed to hash password: %v", err)
+		}
+		if err := db.CreateUser(envUser, hash); err != nil {
+			log.Fatalf("Failed to create user: %v", err)
+		}
+		fmt.Println("Admin account created successfully from environment variables.")
+		return
+	}
+
 	fmt.Println("\n" + strings.Repeat("=", 40))
 	fmt.Println("   VPSMyth First-Run Setup Wizard   ")
 	fmt.Println(strings.Repeat("=", 40))
