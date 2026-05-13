@@ -53,8 +53,11 @@ func setupWizard() {
 	var username string
 	for {
 		fmt.Print("Enter Admin Username: ")
-		username, _ = reader.ReadString('\n')
-		username = strings.TrimSpace(username)
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			log.Fatal("No interactive terminal detected. Set ADMIN_USERNAME and ADMIN_PASSWORD environment variables to create the admin account non-interactively.")
+		}
+		username = strings.TrimSpace(line)
 		if username != "" {
 			break
 		}
@@ -64,8 +67,11 @@ func setupWizard() {
 	var password string
 	for {
 		fmt.Print("Enter Admin Password: ")
-		password, _ = reader.ReadString('\n')
-		password = strings.TrimSpace(password)
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			log.Fatal("No interactive terminal detected. Set ADMIN_USERNAME and ADMIN_PASSWORD environment variables to create the admin account non-interactively.")
+		}
+		password = strings.TrimSpace(line)
 		if len(password) >= 8 {
 			break
 		}
