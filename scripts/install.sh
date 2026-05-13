@@ -43,10 +43,10 @@ echo ""
 
 while true; do
     read -rp "Admin username: " ADMIN_USERNAME </dev/tty
-    if [[ "$ADMIN_USERNAME" =~ ^[a-zA-Z0-9_-]{2,32}$ ]]; then
+    if [[ "$ADMIN_USERNAME" =~ ^[a-zA-Z0-9@._-]{2,32}$ ]]; then
         break
     else
-        echo "  Username must be 2-32 characters (letters, numbers, hyphens, underscores)."
+        echo "  Username must be 2-32 characters (letters, numbers, @, dots, hyphens, underscores)."
     fi
 done
 
