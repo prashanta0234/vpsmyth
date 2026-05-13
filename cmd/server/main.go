@@ -1,16 +1,17 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/prashanta0234/vpsmyth/internal/api"
 	"github.com/prashanta0234/vpsmyth/internal/auth"
 	"github.com/prashanta0234/vpsmyth/internal/db"
-	"bufio"
-	"strings"
+	"github.com/prashanta0234/vpsmyth/internal/monitoring"
 )
 
 func setupWizard() {
@@ -99,6 +100,9 @@ func main() {
 
 	// Run setup wizard
 	setupWizard()
+
+	// Start background monitoring collector
+	monitoring.Start()
 
 	// Register all routes
 	mux := http.DefaultServeMux
