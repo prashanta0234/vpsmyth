@@ -99,6 +99,41 @@ func HandleGetMonitoringApps(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"apps": apps})
 }
 
+// HandleGetBreakdown returns system metrics + per-container breakdown in one call,
+// using the same time buckets so the data aligns for tooltip rendering on the frontend.
+func HandleGetBreakdown(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	since, bucket := rangeParams(r.URL.Query().Get("range"))
+	until := time.Now().Unix()
+
+	system, err := db.GetSystemMetrics(since, until, bucket)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if system == nil {
+		system = []db.SystemMetricPoint{}
+	}
+
+	containers, err := db.GetContainerBreakdown(since, until, bucket)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if containers == nil {
+		containers = []db.ContainerBreakdownPoint{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"system":     system,
+		"containers": containers,
+	})
+}
+
 func HandleToggleAppMonitoring(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

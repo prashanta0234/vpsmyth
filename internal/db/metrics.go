@@ -172,6 +172,45 @@ func GetAllContainersLatest() ([]ContainerSummary, error) {
 	return summaries, nil
 }
 
+type ContainerBreakdownPoint struct {
+	Timestamp     int64   `json:"ts"`
+	ContainerID   string  `json:"container_id"`
+	ContainerName string  `json:"container_name"`
+	CPUPercent    float64 `json:"cpu"`
+	MemUsedMB     float64 `json:"mem_used_mb"`
+}
+
+// GetContainerBreakdown returns per-container averages grouped by the same time
+// buckets used for system metrics, so they align perfectly in the tooltip.
+func GetContainerBreakdown(since, until, bucketSecs int64) ([]ContainerBreakdownPoint, error) {
+	rows, err := DB.Query(`
+		SELECT
+			(ts / ?) * ? AS bucket,
+			container_id,
+			container_name,
+			AVG(cpu_percent),
+			AVG(mem_used_mb)
+		FROM container_metrics
+		WHERE ts >= ? AND ts <= ?
+		GROUP BY bucket, container_id
+		ORDER BY bucket ASC, AVG(cpu_percent) DESC
+	`, bucketSecs, bucketSecs, since, until)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var points []ContainerBreakdownPoint
+	for rows.Next() {
+		var p ContainerBreakdownPoint
+		if err := rows.Scan(&p.Timestamp, &p.ContainerID, &p.ContainerName, &p.CPUPercent, &p.MemUsedMB); err != nil {
+			continue
+		}
+		points = append(points, p)
+	}
+	return points, nil
+}
+
 func PurgeOldMetrics(retentionDays int) error {
 	cutoff := time.Now().Add(-time.Duration(retentionDays) * 24 * time.Hour).Unix()
 	if _, err := DB.Exec(`DELETE FROM system_metrics WHERE ts < ?`, cutoff); err != nil {

@@ -2,6 +2,10 @@ const chartDefaults = {
     responsive: true,
     maintainAspectRatio: false,
     animation: false,
+    interaction: {
+        mode: 'index',
+        intersect: false,
+    },
     plugins: { legend: { display: false } },
     scales: {
         x: {
@@ -38,34 +42,175 @@ function fmtDate(ts) {
         d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-// ── System charts ────────────────────────────────────────────────────────────
+// ── Breakdown tooltip ─────────────────────────────────────────────────────────
+// breakdownMap: { timestamp -> [{container_name, cpu, mem_used_mb}] }
+// systemTs: parallel array of unix timestamps matching chart data indices
+
+let breakdownMap = {};
+let systemTs = [];
+
+function getTooltipEl() {
+    let el = document.getElementById('vm-tooltip');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'vm-tooltip';
+        el.style.cssText = [
+            'position:fixed', 'z-index:9999', 'pointer-events:none',
+            'background:#1e293b', 'color:#f1f5f9', 'border-radius:10px',
+            'padding:10px 14px', 'font-size:11px', 'font-family:inherit',
+            'box-shadow:0 8px 30px rgba(0,0,0,0.35)', 'min-width:220px',
+            'max-width:300px', 'display:none', 'line-height:1.6',
+        ].join(';');
+        document.body.appendChild(el);
+    }
+    return el;
+}
+
+function buildBreakdownTooltip(context) {
+    const { chart, tooltip } = context;
+    const el = getTooltipEl();
+
+    if (tooltip.opacity === 0) { el.style.display = 'none'; return; }
+
+    const idx = tooltip.dataPoints?.[0]?.dataIndex ?? -1;
+    const ts = systemTs[idx];
+    const containers = (ts !== undefined && breakdownMap[ts]) ? breakdownMap[ts] : [];
+
+    const label = chart.data.labels[idx] || '';
+    const sysCpu = tooltip.dataPoints?.find(d => d.dataset.label === 'CPU %')?.raw ?? null;
+    const sysRam = tooltip.dataPoints?.find(d => d.dataset.label === 'Used MB')?.raw ?? null;
+    const sysDisk = tooltip.dataPoints?.find(d => d.dataset.label === 'Used GB')?.raw ?? null;
+
+    let html = `<div style="font-weight:700;margin-bottom:6px;color:#94a3b8">${label}</div>`;
+
+    // System summary row
+    const sysParts = [];
+    if (sysCpu !== null) sysParts.push(`CPU <strong>${sysCpu}%</strong>`);
+    if (sysRam !== null) sysParts.push(`RAM <strong>${sysRam} MB</strong>`);
+    if (sysDisk !== null) sysParts.push(`Disk <strong>${sysDisk} GB</strong>`);
+    if (sysParts.length) {
+        html += `<div style="margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #334155">
+            System: ${sysParts.join(' · ')}
+        </div>`;
+    }
+
+    if (containers.length === 0) {
+        html += `<div style="color:#64748b;font-size:10px">No container data for this point</div>`;
+    } else {
+        html += `<div style="font-weight:600;font-size:10px;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Running containers</div>`;
+        html += `<table style="width:100%;border-collapse:collapse">
+            <tr style="color:#64748b;font-size:10px">
+                <td style="padding:1px 0">Name</td>
+                <td style="padding:1px 4px;text-align:right">CPU%</td>
+                <td style="padding:1px 0;text-align:right">RAM(MB)</td>
+            </tr>`;
+        containers.forEach(c => {
+            const cpuBar = Math.min(c.cpu, 100);
+            const cpuColor = cpuBar >= 80 ? '#ef4444' : cpuBar >= 50 ? '#f59e0b' : '#4ade80';
+            html += `<tr>
+                <td style="padding:2px 0;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.container_name}">${c.container_name}</td>
+                <td style="padding:2px 4px;text-align:right;color:${cpuColor};font-weight:600">${c.cpu.toFixed(1)}</td>
+                <td style="padding:2px 0;text-align:right">${c.mem_used_mb.toFixed(0)}</td>
+            </tr>`;
+        });
+        html += '</table>';
+    }
+
+    el.innerHTML = html;
+    el.style.display = 'block';
+
+    // Position near cursor, flip if near edge
+    const rect = chart.canvas.getBoundingClientRect();
+    const cx = rect.left + tooltip.caretX;
+    const cy = rect.top + tooltip.caretY;
+    const w = el.offsetWidth || 240;
+    const h = el.offsetHeight || 120;
+    const left = cx + 16 + w > window.innerWidth ? cx - w - 16 : cx + 16;
+    const top  = cy + h > window.innerHeight ? cy - h : cy;
+    el.style.left = left + 'px';
+    el.style.top  = top  + 'px';
+}
+
+const tooltipPlugin = {
+    enabled: false,
+    external: buildBreakdownTooltip,
+};
+
+// ── System charts ─────────────────────────────────────────────────────────────
 
 let cpuChart, ramChart, diskChart;
 let currentRange = '1h';
+
+function systemChartOptions(extra = {}) {
+    return {
+        ...chartDefaults,
+        ...extra,
+        plugins: {
+            legend: { display: false },
+            tooltip: tooltipPlugin,
+        },
+        scales: {
+            ...chartDefaults.scales,
+            ...(extra.scales || {}),
+        },
+        onHover: (_, elements, chart) => {
+            // Sync crosshair across all system charts
+            if (elements.length) {
+                const idx = elements[0].index;
+                [cpuChart, ramChart, diskChart].forEach(c => {
+                    if (c && c !== chart) {
+                        c.tooltip.setActiveElements(
+                            c.data.datasets.map((_, di) => ({ datasetIndex: di, index: idx })),
+                            { x: 0, y: 0 }
+                        );
+                        c.update('none');
+                    }
+                });
+            }
+        },
+    };
+}
 
 function initSystemCharts() {
     cpuChart = new Chart(document.getElementById('cpu-chart'), {
         type: 'line',
         data: { labels: [], datasets: [lineDataset('CPU %', [], '#4f46e5')] },
-        options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, max: 100 } } }
+        options: systemChartOptions({ scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, max: 100 } } }),
     });
     ramChart = new Chart(document.getElementById('ram-chart'), {
         type: 'line',
         data: { labels: [], datasets: [lineDataset('Used MB', [], '#0ea5e9'), lineDataset('Total MB', [], '#cbd5e1')] },
-        options: { ...chartDefaults }
+        options: systemChartOptions(),
     });
     diskChart = new Chart(document.getElementById('disk-chart'), {
         type: 'line',
         data: { labels: [], datasets: [lineDataset('Used GB', [], '#f59e0b'), lineDataset('Total GB', [], '#e2e8f0')] },
-        options: { ...chartDefaults }
+        options: systemChartOptions(),
+    });
+
+    // Hide tooltip when mouse leaves any chart
+    [cpuChart, ramChart, diskChart].forEach(c => {
+        c.canvas.addEventListener('mouseleave', () => {
+            getTooltipEl().style.display = 'none';
+        });
     });
 }
 
 async function loadSystemMetrics(range) {
-    const res = await fetch(`/api/monitoring/system?range=${range}`);
+    const res = await fetch(`/api/monitoring/breakdown?range=${range}`);
     if (!res.ok) return;
-    const { data } = await res.json();
+    const { system: data, containers: breakdown } = await res.json();
     if (!data || data.length === 0) return;
+
+    // Build breakdown lookup: ts -> [{container_name, cpu, mem_used_mb}]
+    breakdownMap = {};
+    (breakdown || []).forEach(p => {
+        if (!breakdownMap[p.ts]) breakdownMap[p.ts] = [];
+        breakdownMap[p.ts].push(p);
+    });
+
+    // Store timestamps for index → ts lookup in tooltip
+    systemTs = data.map(p => p.ts);
 
     const isLong = range === '7d' || range === '30d';
     const labels = data.map(p => isLong ? fmtDate(p.ts) : fmtTime(p.ts));

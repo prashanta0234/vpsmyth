@@ -80,6 +80,7 @@ func RegisterRoutes(mux *http.ServeMux) {
 
 	// Monitoring routes
 	mux.HandleFunc("/api/monitoring/system", HandleGetSystemMetrics)
+	mux.HandleFunc("/api/monitoring/breakdown", HandleGetBreakdown)
 	mux.HandleFunc("/api/monitoring/containers", HandleGetContainersSummary)
 	mux.HandleFunc("/api/monitoring/container", HandleGetContainerMetrics)
 	mux.HandleFunc("/api/monitoring/apps", HandleGetMonitoringApps)
