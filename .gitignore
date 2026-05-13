@@ -1,0 +1,29 @@
+# Local-only documentation (never push to GitHub)
+docs/
+
+# Build output
+main
+vpsmyth
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Go
+vendor/
