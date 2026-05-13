@@ -61,6 +61,39 @@ Press Enter to use `admin` as the default, or type any path you want (letters, n
 
 The backend runs internally on port **2026** and is never exposed publicly. Nginx handles all traffic on port 80 (and 443 with SSL) and proxies to the backend.
 
+## Updating
+
+Run this command on your server to pull the latest version and apply it:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/prashanta0234/vpsmyth/main/scripts/update.sh | sudo bash
+```
+
+Or inspect first:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/prashanta0234/vpsmyth/main/scripts/update.sh -o update.sh
+less update.sh
+sudo bash update.sh
+```
+
+The update script:
+
+* Pulls the latest code from GitHub
+* If already on the latest commit, exits early with no changes
+* Builds the new binary
+* Stops the service, swaps the binary and UI files, restarts
+* **Preserves** your database, credentials, panel path, and Nginx config
+* Automatically rolls back to the previous binary if the service fails to start after the update
+
+A backup of the previous binary is kept at `/opt/vpsmyth/vpsmyth.bak`. To roll back manually:
+
+```bash
+sudo systemctl stop vpsmyth
+sudo cp /opt/vpsmyth/vpsmyth.bak /opt/vpsmyth/vpsmyth
+sudo systemctl start vpsmyth
+```
+
 ## Uninstallation
 
 Run this command to uninstall:

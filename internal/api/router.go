@@ -78,6 +78,13 @@ func RegisterRoutes(mux *http.ServeMux) {
 	// Stats route
 	mux.HandleFunc("/api/stats", HandleStats)
 
+	// Monitoring routes
+	mux.HandleFunc("/api/monitoring/system", HandleGetSystemMetrics)
+	mux.HandleFunc("/api/monitoring/containers", HandleGetContainersSummary)
+	mux.HandleFunc("/api/monitoring/container", HandleGetContainerMetrics)
+	mux.HandleFunc("/api/monitoring/apps", HandleGetMonitoringApps)
+	mux.HandleFunc("/api/monitoring/app/toggle", HandleToggleAppMonitoring)
+
 	// SPA Routing
 	uiDir := "ui"
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
