@@ -68,7 +68,7 @@ func collectContainers(ts int64) {
 	out, err := exec.Command("docker", "stats", "--no-stream", "--format",
 		"{{.ID}}|{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}").Output()
 	if err != nil {
-		return // docker not running or no containers
+		return
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(string(out)))

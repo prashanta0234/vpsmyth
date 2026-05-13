@@ -51,6 +51,10 @@ func InitDB(dbPath string) error {
 		return fmt.Errorf("failed to create monitoring tables: %w", err)
 	}
 
+	if err := InitSecurityTables(); err != nil {
+		return fmt.Errorf("failed to create security tables: %w", err)
+	}
+
 	fmt.Println("Database initialized successfully.")
 	return nil
 }

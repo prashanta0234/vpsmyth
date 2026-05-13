@@ -113,6 +113,7 @@ func main() {
 		port = "2026"
 	}
 
-	fmt.Printf("VPSMyth server starting on http://localhost:%s\n", port)
-	log.Fatal(http.ListenAndServe(":"+port, api.AuthMiddleware(mux)))
+	addr := "127.0.0.1:" + port
+	fmt.Printf("VPSMyth server starting on http://%s\n", addr)
+	log.Fatal(http.ListenAndServe(addr, api.IPWhitelistMiddleware(api.AuthMiddleware(mux))))
 }
