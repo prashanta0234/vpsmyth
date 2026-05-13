@@ -100,7 +100,7 @@ func main() {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "2026"
 	}
 
 	fmt.Printf("VPSMyth server starting on http://localhost:%s\n", port)

@@ -3,6 +3,38 @@
 # VPSMyth Installation Script (Infrastructure Layer)
 set -e
 
+echo ""
+echo "========================================"
+echo "   Welcome to VPSMyth Installer"
+echo "========================================"
+echo ""
+
+#################################
+# 0. Dashboard Path Setup
+#################################
+DEFAULT_PANEL_PATH="admin"
+
+while true; do
+    # Read from /dev/tty explicitly so this works when piped via curl | bash
+    read -rp "Enter dashboard path [default: ${DEFAULT_PANEL_PATH}]: " PANEL_PATH_INPUT </dev/tty
+    PANEL_PATH="${PANEL_PATH_INPUT:-$DEFAULT_PANEL_PATH}"
+
+    # Strip any leading/trailing slashes entered by user
+    PANEL_PATH="${PANEL_PATH#/}"
+    PANEL_PATH="${PANEL_PATH%/}"
+
+    # Validate: only allow alphanumeric, hyphens, underscores. 2-40 chars.
+    if [[ "$PANEL_PATH" =~ ^[a-zA-Z0-9_-]{2,40}$ ]]; then
+        break
+    else
+        echo "  Invalid path. Use only letters, numbers, hyphens, or underscores (2-40 characters). No slashes."
+    fi
+done
+
+echo ""
+echo "  Dashboard will be available at: http://YOUR_SERVER_IP/${PANEL_PATH}"
+echo ""
+
 echo "Starting VPSMyth installation..."
 
 #################################
@@ -172,7 +204,7 @@ User=root
 WorkingDirectory=/opt/vpsmyth
 ExecStart=/opt/vpsmyth/vpsmyth
 Restart=on-failure
-Environment="PORT=8080"
+Environment="PORT=2026"
 # Set these if you want to auto-create admin on first run
 # Environment="ADMIN_USERNAME=admin"
 # Environment="ADMIN_PASSWORD=changeme"
@@ -192,17 +224,61 @@ echo "VPSMyth service installed and started."
 #################################
 echo "Updating Nginx configuration..."
 
-sudo tee /etc/nginx/sites-available/vpsmyth-base >/dev/null <<'EOF'
+# Save panel path for reference
+echo "$PANEL_PATH" | sudo tee /opt/vpsmyth/panel-path >/dev/null
+
+sudo tee /etc/nginx/sites-available/vpsmyth-base >/dev/null <<EOF
 server {
     listen 80 default_server;
     server_name _;
 
+    # Block root — visiting IP directly reveals nothing
+    location = / {
+        return 404;
+    }
+
+    # Redirect panel path without trailing slash
+    location = /${PANEL_PATH} {
+        return 301 /${PANEL_PATH}/;
+    }
+
+    # Dashboard entry point — strip panel prefix before proxying to backend
+    location /${PANEL_PATH}/ {
+        proxy_pass http://localhost:2026/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+    # Static assets — HTML references these as absolute paths so they must stay at root
+    location /css/ {
+        proxy_pass http://localhost:2026/css/;
+        proxy_set_header Host \$host;
+    }
+
+    location /js/ {
+        proxy_pass http://localhost:2026/js/;
+        proxy_set_header Host \$host;
+    }
+
+    location /assets/ {
+        proxy_pass http://localhost:2026/assets/;
+        proxy_set_header Host \$host;
+    }
+
+    # API routes — protected by JWT on the backend
+    location /api/ {
+        proxy_pass http://localhost:2026/api/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+    # Block everything else
     location / {
-        proxy_pass http://localhost:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        return 404;
     }
 }
 EOF
@@ -212,5 +288,16 @@ sudo systemctl reload nginx
 
 echo "Nginx configured to proxy to VPSMyth."
 
-echo "VPSMyth installation complete 🚀"
-echo "Access your management portal at http://<YOUR_SERVER_IP>"
+# Detect server IP for the final message
+SERVER_IP=$(hostname -I | awk '{print $1}')
+
+echo ""
+echo "========================================"
+echo "   VPSMyth installation complete!"
+echo "========================================"
+echo ""
+echo "  Dashboard: http://${SERVER_IP}/${PANEL_PATH}"
+echo ""
+echo "  Panel path saved to: /opt/vpsmyth/panel-path"
+echo "  To check it later: cat /opt/vpsmyth/panel-path"
+echo ""
