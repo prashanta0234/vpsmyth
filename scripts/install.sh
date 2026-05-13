@@ -35,6 +35,41 @@ echo ""
 echo "  Dashboard will be available at: http://YOUR_SERVER_IP/${PANEL_PATH}"
 echo ""
 
+#################################
+# 0b. Admin Account Setup
+#################################
+echo "Create your admin account:"
+echo ""
+
+while true; do
+    read -rp "Admin username: " ADMIN_USERNAME </dev/tty
+    if [[ "$ADMIN_USERNAME" =~ ^[a-zA-Z0-9_-]{2,32}$ ]]; then
+        break
+    else
+        echo "  Username must be 2-32 characters (letters, numbers, hyphens, underscores)."
+    fi
+done
+
+while true; do
+    read -rsp "Admin password (min 8 chars): " ADMIN_PASSWORD </dev/tty
+    echo ""
+    if [ "${#ADMIN_PASSWORD}" -ge 8 ]; then
+        read -rsp "Confirm password: " ADMIN_PASSWORD_CONFIRM </dev/tty
+        echo ""
+        if [ "$ADMIN_PASSWORD" = "$ADMIN_PASSWORD_CONFIRM" ]; then
+            break
+        else
+            echo "  Passwords do not match. Try again."
+        fi
+    else
+        echo "  Password must be at least 8 characters."
+    fi
+done
+
+echo ""
+echo "  Admin account ready."
+echo ""
+
 echo "Starting VPSMyth installation..."
 
 #################################
@@ -205,9 +240,8 @@ WorkingDirectory=/opt/vpsmyth
 ExecStart=/opt/vpsmyth/vpsmyth
 Restart=on-failure
 Environment="PORT=2026"
-# Set these if you want to auto-create admin on first run
-# Environment="ADMIN_USERNAME=admin"
-# Environment="ADMIN_PASSWORD=changeme"
+Environment="ADMIN_USERNAME=${ADMIN_USERNAME}"
+Environment="ADMIN_PASSWORD=${ADMIN_PASSWORD}"
 
 [Install]
 WantedBy=multi-user.target
