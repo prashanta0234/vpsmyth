@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (response.ok) {
-                window.location.href = '/index.html';
+                window.location.href = 'index.html';
             } else {
                 const result = await response.json();
                 errorBox.textContent = result.error || 'Invalid username or password';

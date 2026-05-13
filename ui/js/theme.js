@@ -21,7 +21,7 @@ if (logoutBtn) {
         try {
             const response = await fetch('/api/auth/logout', { method: 'POST' });
             if (response.ok) {
-                window.location.href = '/login.html';
+                window.location.href = 'login.html';
             }
         } catch (err) {
             console.error('Logout failed:', err);
@@ -30,5 +30,5 @@ if (logoutBtn) {
 }
 
 function handleAuthError() {
-    window.location.href = '/login.html';
+    window.location.href = 'login.html';
 }

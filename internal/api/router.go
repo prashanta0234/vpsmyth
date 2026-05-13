@@ -10,6 +10,15 @@ import (
 	"github.com/prashanta0234/vpsmyth/internal/system"
 )
 
+// loginRedirect is the absolute URL path the browser should land on when not authenticated.
+// If PANEL_PATH is set (e.g. "myadminPanel"), it becomes "/myadminPanel/login.html".
+var loginRedirect = func() string {
+	if p := strings.Trim(os.Getenv("PANEL_PATH"), "/"); p != "" {
+		return "/" + p + "/login.html"
+	}
+	return "/login.html"
+}()
+
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Public routes
@@ -23,7 +32,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			if strings.HasPrefix(r.URL.Path, "/api/") {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			} else {
-				http.Redirect(w, r, "/login.html", http.StatusSeeOther)
+				http.Redirect(w, r, loginRedirect, http.StatusSeeOther)
 			}
 			return
 		}
@@ -33,7 +42,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			if strings.HasPrefix(r.URL.Path, "/api/") {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			} else {
-				http.Redirect(w, r, "/login.html", http.StatusSeeOther)
+				http.Redirect(w, r, loginRedirect, http.StatusSeeOther)
 			}
 			return
 		}
