@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VPSMyth | Security</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .security-section {
+            background: var(--card-bg, #fff);
+            border: 1px solid var(--border, #e2e8f0);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .security-section h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 0 0 1.25rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .my-ip-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg, #f8fafc);
+            border: 1px solid var(--border, #e2e8f0);
+            border-radius: 8px;
+            padding: 0.6rem 1rem;
+            font-size: 0.95rem;
+            font-family: monospace;
+            font-weight: 500;
+            color: var(--text, #1e293b);
+        }
+        .whitelist-empty {
+            color: var(--muted, #94a3b8);
+            font-size: 0.875rem;
+            padding: 1rem 0;
+        }
+        .whitelist-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+        .whitelist-table th {
+            text-align: left;
+            font-weight: 600;
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid var(--border, #e2e8f0);
+            color: var(--muted, #64748b);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .whitelist-table td {
+            padding: 0.65rem 0.75rem;
+            border-bottom: 1px solid var(--border, #e2e8f0);
+            font-family: monospace;
+        }
+        .whitelist-table td.label-cell {
+            font-family: inherit;
+            color: var(--muted, #64748b);
+        }
+        .whitelist-table td.date-cell {
+            font-family: inherit;
+            color: var(--muted, #94a3b8);
+            font-size: 0.8rem;
+        }
+        .whitelist-table tr:last-child td { border-bottom: none; }
+        .btn-delete {
+            background: none;
+            border: 1px solid #fca5a5;
+            color: #ef4444;
+            border-radius: 6px;
+            padding: 0.3rem 0.6rem;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.15s;
+        }
+        .btn-delete:hover { background: #fef2f2; }
+        .add-form {
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-end;
+            flex-wrap: wrap;
+            margin-top: 1.25rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid var(--border, #e2e8f0);
+        }
+        .form-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+        .form-field label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--muted, #64748b);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .form-field input {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--border, #e2e8f0);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.875rem;
+            background: var(--bg, #f8fafc);
+            color: var(--text, #1e293b);
+            width: 200px;
+        }
+        .form-field input:focus {
+            outline: none;
+            border-color: #4f46e5;
+        }
+        .btn-add {
+            padding: 0.5rem 1.25rem;
+            background: #4f46e5;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+            height: 36px;
+        }
+        .btn-add:hover { background: #4338ca; }
+        .btn-add:disabled { background: #a5b4fc; cursor: not-allowed; }
+        .warning-banner {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
+            border-radius: 10px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+            color: #92400e;
+        }
+        .warning-banner.hidden { display: none; }
+        .warning-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 0.05rem; }
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            margin-right: 0.4rem;
+        }
+        .status-dot.locked { background: #ef4444; }
+        .error-msg {
+            font-size: 0.8rem;
+            color: #ef4444;
+            margin-top: 0.35rem;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <aside>
+        <div class="brand">
+            <img src="/assets/logo.png" alt="VPSMyth Logo" class="brand-logo">
+            <span class="brand-name">VPSMyth</span>
+        </div>
+
+        <nav>
+            <a href="index.html" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6">
+                    </path>
+                </svg>
+                <span>Dashboard</span>
+            </a>
+            <a href="apps.html" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7">
+                    </path>
+                </svg>
+                <span>Applications</span>
+            </a>
+            <a href="containers.html" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
+                    </path>
+                </svg>
+                <span>Docker Containers</span>
+            </a>
+            <a href="system.html" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924-1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
+                    </path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+                <span>System Tools</span>
+            </a>
+            <a href="settings.html" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4">
+                    </path>
+                </svg>
+                <span>Settings</span>
+            </a>
+            <a href="monitoring.html" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
+                    </path>
+                </svg>
+                <span>Monitoring</span>
+            </a>
+            <a href="security.html" class="nav-item active">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z">
+                    </path>
+                </svg>
+                <span>Security</span>
+            </a>
+            <a href="#" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span>Cron Jobs</span>
+            </a>
+            <a href="#" class="nav-item" id="logout-btn" style="margin-top: auto; color: #ef4444;">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+                    </path>
+                </svg>
+                <span>Logout</span>
+            </a>
+        </nav>
+    </aside>
+
+    <main>
+        <div class="top-bar">
+            <div class="search-container" style="visibility: hidden;">
+                <input type="text">
+            </div>
+            <div class="actions">
+                <button class="theme-toggle" id="theme-toggle" title="Toggle Theme">
+                    <svg class="sun-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.364l-.707-.707M15 12a3 3 0 11-6 0 3 3 0 016 0z">
+                        </path>
+                    </svg>
+                    <svg class="moon-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="page-header">
+            <h1>Security</h1>
+            <p>Control which IP addresses can access this panel.</p>
+        </div>
+
+        <!-- Lockout warning -->
+        <div class="warning-banner hidden" id="lockout-warning">
+            <span class="warning-icon">&#9888;</span>
+            <div>
+                <strong>Your IP is not whitelisted.</strong> If you save this list without including
+                <strong id="warning-ip"></strong>, you will be locked out of the panel immediately.
+                Add your IP before saving any changes.
+            </div>
+        </div>
+
+        <!-- Your IP -->
+        <div class="security-section">
+            <h2>
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9">
+                    </path>
+                </svg>
+                Your Current IP
+            </h2>
+            <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                <span class="my-ip-badge" id="my-ip-display">Loading...</span>
+                <button class="btn-add" id="add-my-ip-btn" style="display:none;">Add My IP to Whitelist</button>
+                <span id="ip-status" style="font-size:0.85rem; color: var(--muted,#64748b);"></span>
+            </div>
+        </div>
+
+        <!-- IP Whitelist -->
+        <div class="security-section">
+            <h2>
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z">
+                    </path>
+                </svg>
+                IP Whitelist
+                <span style="font-size:0.75rem; font-weight:400; color:var(--muted,#94a3b8); margin-left:0.25rem;">
+                    (empty = allow all IPs)
+                </span>
+            </h2>
+
+            <div id="whitelist-container">
+                <p class="whitelist-empty">Loading...</p>
+            </div>
+
+            <!-- Add entry form -->
+            <div class="add-form">
+                <div class="form-field">
+                    <label>IP or CIDR</label>
+                    <input type="text" id="input-cidr" placeholder="e.g. 1.2.3.4 or 10.0.0.0/8">
+                    <span class="error-msg" id="cidr-error"></span>
+                </div>
+                <div class="form-field">
+                    <label>Label (optional)</label>
+                    <input type="text" id="input-label" placeholder="e.g. Home, Office">
+                </div>
+                <button class="btn-add" id="add-btn">Add to Whitelist</button>
+            </div>
+        </div>
+
+        <!-- Info box -->
+        <div class="security-section" style="background: var(--bg,#f8fafc);">
+            <h2 style="font-size:0.875rem; color:var(--muted,#64748b);">How it works</h2>
+            <ul style="font-size:0.85rem; color:var(--muted,#64748b); margin:0; padding-left:1.25rem; line-height:1.9;">
+                <li>When the whitelist is <strong>empty</strong>, anyone can reach the panel (authentication still required).</li>
+                <li>Once you add an entry, <strong>only listed IPs</strong> can reach the panel — everyone else gets a 403 from Nginx before any login prompt.</li>
+                <li>Changes apply <strong>immediately</strong> — Nginx is reloaded after every add or delete.</li>
+                <li>CIDR notation is supported (e.g. <code>192.168.1.0/24</code> for a whole subnet).</li>
+                <li>Loopback (<code>127.0.0.1</code>) is always allowed so the server itself stays functional.</li>
+            </ul>
+        </div>
+    </main>
+
+    <script src="js/theme.js"></script>
+    <script src="js/security.js"></script>
+</body>
+
+</html>
