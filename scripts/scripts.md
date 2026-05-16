@@ -15,7 +15,15 @@ System-level Bash scripts for automation.
 - Stop VPSMyth service
 - Remove binaries
 - Clean configuration
-- Optional: remove apps
+- Optional: remove apps, Docker, Node.js (user decides)
+
+#### `update.sh`
+- Pull latest source from GitHub
+- Exit early if already on latest commit
+- Build new binary
+- Stop service, swap binary and UI, restart
+- Auto-rollback if service fails to start after update
+- Preserves database, credentials, panel path, and Nginx config
 
 ---
 

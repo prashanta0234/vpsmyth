@@ -61,6 +61,39 @@ Press Enter to use `admin` as the default, or type any path you want (letters, n
 
 The backend runs internally on port **2026** and is never exposed publicly. Nginx handles all traffic on port 80 (and 443 with SSL) and proxies to the backend.
 
+## Updating
+
+Run this command on your server to pull the latest version and apply it:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/prashanta0234/vpsmyth/main/scripts/update.sh | sudo bash
+```
+
+Or inspect first:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/prashanta0234/vpsmyth/main/scripts/update.sh -o update.sh
+less update.sh
+sudo bash update.sh
+```
+
+The update script:
+
+* Pulls the latest code from GitHub
+* If already on the latest commit, exits early with no changes
+* Builds the new binary
+* Stops the service, swaps the binary and UI files, restarts
+* **Preserves** your database, credentials, panel path, and Nginx config
+* Automatically rolls back to the previous binary if the service fails to start after the update
+
+A backup of the previous binary is kept at `/opt/vpsmyth/vpsmyth.bak`. To roll back manually:
+
+```bash
+sudo systemctl stop vpsmyth
+sudo cp /opt/vpsmyth/vpsmyth.bak /opt/vpsmyth/vpsmyth
+sudo systemctl start vpsmyth
+```
+
 ## Uninstallation
 
 Run this command to uninstall:
@@ -209,26 +242,60 @@ VPSMyth provides a built-in firewall management interface powered by **UFW (Unco
 
 ## IP Whitelisting
 
-VPSMyth supports IP-level access control for the dashboard and individual apps.
+VPSMyth lets you lock down the admin panel so only specific IP addresses can access it — before any login prompt is shown.
 
-### Dashboard IP Whitelist
+### When does it activate?
 
-* Only IPs in the whitelist can access the VPSMyth dashboard
-* By default, all IPs are allowed (open mode) — you should restrict this after install
-* Supports single IPs (`203.0.113.5`) and CIDR ranges (`10.0.0.0/24`)
-* Changes take effect immediately without a service restart
+The whitelist has two modes:
 
-### Per-App IP Whitelist
+| Whitelist state | What happens |
+|-----------------|--------------|
+| **Empty (default)** | All IPs are allowed through. Everyone still needs to log in. |
+| **One or more entries added** | Only listed IPs can reach the panel. All others get `403 Forbidden` immediately — no login page, no API access. |
 
-* Each deployed app can have its own IP whitelist
-* Traffic from non-whitelisted IPs returns `403 Forbidden` via the Nginx reverse proxy
-* Whitelist is managed per-app from the app detail page
+The switch between these two modes is automatic. Add the first entry and the restriction is live. Remove all entries and the restriction is gone.
 
-### How to Configure
+### What it blocks
 
-1. Go to **Settings > Security > IP Whitelist**
-2. Add your IP address or CIDR range
-3. Click **Save** — the Nginx config is updated and reloaded automatically
+Once the whitelist has entries, every request to the panel is checked — including:
+
+* The dashboard (`/yourPanelPath/`)
+* All API calls (`/api/...`)
+* Static files (`/css/`, `/js/`, `/assets/`)
+
+A blocked IP sees a plain `403 Forbidden` from Nginx. There is no login page, no error details, nothing to interact with.
+
+### How it cannot be bypassed
+
+Three layers work together:
+
+1. **Backend binds to `127.0.0.1` only** — port 2026 is invisible from the internet. Direct port access is impossible regardless of firewall rules.
+2. **Nginx enforces the whitelist** — `/etc/nginx/vpsmyth/whitelist.conf` is written by VPSMyth and included in every proxied location block. Blocked IPs are rejected at the network layer, before Go sees the request.
+3. **Go middleware double-checks** — `IPWhitelistMiddleware` reads the `X-Real-IP` header injected by Nginx and rejects anything not in the list. Even if Nginx were misconfigured, the backend still enforces the same rules.
+
+### Lockout protection
+
+The Security page shows your current IP and warns you if it is not covered by any entry in the list. An **Add My IP** button lets you whitelist yourself with one click before saving any changes.
+
+> **Important:** If you add entries that don't include your own IP, you will be locked out immediately. The lockout warning is there to prevent this. `127.0.0.1` (loopback) is always allowed so the server stays functional.
+
+### How to configure
+
+1. Go to **Security** in the sidebar
+2. Your current IP is shown at the top
+3. Enter an IP (`203.0.113.5`) or CIDR range (`10.0.0.0/24`) and an optional label
+4. Click **Add to Whitelist** — Nginx reloads within seconds and the rule is live
+
+To remove a restriction, click **Remove** next to any entry. When the last entry is removed, the whitelist is empty again and all IPs are allowed.
+
+### Supported formats
+
+| Input | Stored as | Matches |
+|-------|-----------|---------|
+| `1.2.3.4` | `1.2.3.4/32` | Exactly that IPv4 address |
+| `2001:db8::1` | `2001:db8::1/128` | Exactly that IPv6 address |
+| `10.0.0.0/8` | `10.0.0.0/8` | Entire `10.x.x.x` subnet |
+| `192.168.1.0/24` | `192.168.1.0/24` | All `192.168.1.x` addresses |
 
 ---
 

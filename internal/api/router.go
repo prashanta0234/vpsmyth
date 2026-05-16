@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/prashanta0234/vpsmyth/internal/auth"
+	"github.com/prashanta0234/vpsmyth/internal/db"
 	"github.com/prashanta0234/vpsmyth/internal/system"
 )
 
@@ -18,6 +19,24 @@ var loginRedirect = func() string {
 	}
 	return "/login.html"
 }()
+// IPWhitelistMiddleware blocks requests whose X-Real-IP is not in the whitelist.
+// When the whitelist is empty, all IPs are allowed. Direct local connections
+// (no X-Real-IP header) pass through because the backend is bound to 127.0.0.1.
+func IPWhitelistMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ip := r.Header.Get("X-Real-IP")
+		if ip == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		allowed, err := db.IsIPAllowed(strings.TrimSpace(ip))
+		if err != nil || !allowed {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
 
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -86,6 +105,20 @@ func RegisterRoutes(mux *http.ServeMux) {
 
 	// Stats route
 	mux.HandleFunc("/api/stats", HandleStats)
+
+	// Security routes
+	mux.HandleFunc("/api/security/whitelist", HandleGetWhitelist)
+	mux.HandleFunc("/api/security/whitelist/add", HandleAddWhitelist)
+	mux.HandleFunc("/api/security/whitelist/delete", HandleDeleteWhitelist)
+	mux.HandleFunc("/api/security/myip", HandleGetMyIP)
+
+	// Monitoring routes
+	mux.HandleFunc("/api/monitoring/system", HandleGetSystemMetrics)
+	mux.HandleFunc("/api/monitoring/breakdown", HandleGetBreakdown)
+	mux.HandleFunc("/api/monitoring/containers", HandleGetContainersSummary)
+	mux.HandleFunc("/api/monitoring/container", HandleGetContainerMetrics)
+	mux.HandleFunc("/api/monitoring/apps", HandleGetMonitoringApps)
+	mux.HandleFunc("/api/monitoring/app/toggle", HandleToggleAppMonitoring)
 
 	// SPA Routing
 	uiDir := "ui"

@@ -138,6 +138,8 @@ sudo rm -f /etc/nginx/sites-available/default
 
 # Create directories for VPSMyth-managed apps
 sudo mkdir -p /etc/nginx/vpsmyth/apps
+sudo mkdir -p /etc/nginx/vpsmyth
+sudo touch /etc/nginx/vpsmyth/whitelist.conf
 
 # Base catch-all server (owned by VPSMyth)
 sudo tee /etc/nginx/sites-available/vpsmyth-base >/dev/null <<'EOF'
@@ -279,6 +281,7 @@ server {
 
     # Dashboard entry point — strip panel prefix before proxying to backend
     location /${PANEL_PATH}/ {
+        include /etc/nginx/vpsmyth/whitelist.conf;
         proxy_pass http://localhost:2026/;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
@@ -288,22 +291,26 @@ server {
 
     # Static assets — HTML references these as absolute paths so they must stay at root
     location /css/ {
+        include /etc/nginx/vpsmyth/whitelist.conf;
         proxy_pass http://localhost:2026/css/;
         proxy_set_header Host \$host;
     }
 
     location /js/ {
+        include /etc/nginx/vpsmyth/whitelist.conf;
         proxy_pass http://localhost:2026/js/;
         proxy_set_header Host \$host;
     }
 
     location /assets/ {
+        include /etc/nginx/vpsmyth/whitelist.conf;
         proxy_pass http://localhost:2026/assets/;
         proxy_set_header Host \$host;
     }
 
     # API routes — protected by JWT on the backend
     location /api/ {
+        include /etc/nginx/vpsmyth/whitelist.conf;
         proxy_pass http://localhost:2026/api/;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
