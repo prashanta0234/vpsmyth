@@ -30,6 +30,13 @@ func IPWhitelistMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func loginURL() string {
+	if p := os.Getenv("PANEL_PATH"); p != "" {
+		return "/" + p + "/login.html"
+	}
+	return "/login.html"
+}
+
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Public routes
@@ -43,7 +50,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			if strings.HasPrefix(r.URL.Path, "/api/") {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			} else {
-				http.Redirect(w, r, "/login.html", http.StatusSeeOther)
+				http.Redirect(w, r, loginURL(), http.StatusSeeOther)
 			}
 			return
 		}
@@ -53,7 +60,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			if strings.HasPrefix(r.URL.Path, "/api/") {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			} else {
-				http.Redirect(w, r, "/login.html", http.StatusSeeOther)
+				http.Redirect(w, r, loginURL(), http.StatusSeeOther)
 			}
 			return
 		}
@@ -97,6 +104,13 @@ func RegisterRoutes(mux *http.ServeMux) {
 
 	// Stats route
 	mux.HandleFunc("/api/stats", HandleStats)
+
+	// Firewall routes
+	mux.HandleFunc("/api/firewall/status", HandleGetFirewallStatus)
+	mux.HandleFunc("/api/firewall/enable", HandleFirewallEnable)
+	mux.HandleFunc("/api/firewall/disable", HandleFirewallDisable)
+	mux.HandleFunc("/api/firewall/rule/add", HandleAddFirewallRule)
+	mux.HandleFunc("/api/firewall/rule/delete", HandleDeleteFirewallRule)
 
 	// Security routes
 	mux.HandleFunc("/api/security/whitelist", HandleGetWhitelist)

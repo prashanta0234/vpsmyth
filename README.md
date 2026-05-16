@@ -209,34 +209,75 @@ When you click **PostgreSQL** in the dashboard, VPSMyth:
 
 ## Firewall Management
 
-VPSMyth provides a built-in firewall management interface powered by **UFW (Uncomplicated Firewall)**.
+VPSMyth has a built-in firewall manager powered by **UFW (Uncomplicated Firewall)**. UFW wraps Linux `iptables` at the OS level — it controls **all traffic on all ports**, including SSH (port 22). Changes apply immediately with no service restart.
 
-### Features
+### What you can do
 
-* View all active firewall rules in the dashboard
-* Add and remove rules (allow/deny) for any port or port range
-* Protocol-level control (TCP, UDP, or both)
-* One-click deny-all incoming with allow-all outgoing (recommended default)
-* Preset rules for common services (HTTP 80, HTTPS 443, SSH 22, custom)
-* Real-time rule status without SSH access
+* **Enable / disable** UFW with one click
+* **Add rules** — allow, deny, or rate-limit any port or port range
+* **Set direction** — incoming, outgoing, or both
+* **Filter by source IP** — e.g. allow port 22 only from your IP
+* **Port ranges** — e.g. `8000:9000` covers all ports in that range
+* **Protocol control** — TCP, UDP, or both
+* **Delete any rule** by clicking Remove next to it
+* **Quick presets** — common rules ready to apply in one click
 
-### Default Firewall Policy (applied on install)
+### Quick presets
 
-| Direction | Policy |
-|-----------|--------|
-| Incoming  | Deny all |
-| Outgoing  | Allow all |
-| SSH (22)  | Allow (to prevent lockout) |
-| HTTP (80) | Allow |
-| HTTPS (443) | Allow |
-| VPSMyth dashboard port | Allow (restricted by IP whitelist) |
+| Preset | What it does |
+|--------|--------------|
+| Allow SSH (22) | Opens port 22 for all IPs |
+| Limit SSH (22) | Rate-limits SSH — blocks IPs that connect too fast, stops brute-force attacks |
+| Allow HTTP (80) | Opens port 80 |
+| Allow HTTPS (443) | Opens port 443 |
+| Deny HTTP (80) | Blocks port 80 |
+| Allow my IP on SSH | Allows only your current IP on port 22 — everyone else is blocked |
 
-### How to Add a Rule
+### Actions explained
 
-1. Go to **Firewall** in the dashboard
-2. Click **Add Rule**
-3. Enter port, protocol, and action (allow/deny)
-4. Click **Apply** — the rule is active immediately
+| Action | Meaning |
+|--------|---------|
+| **Allow** | Let traffic through |
+| **Deny** | Drop the packet silently — the sender gets no response |
+| **Limit** | Allow, but rate-limit: if an IP makes 6+ connections in 30 seconds, block it temporarily. Use this on SSH to stop brute-force attacks. |
+
+### How to add a rule
+
+1. Go to **Firewall** in the sidebar
+2. Enter your **sudo password** when prompted — required every time you open the page
+3. Choose Action, Direction, Port, Protocol, and optionally a source IP
+4. Click **Add Rule** — UFW applies it immediately
+
+### Sudo password requirement
+
+Every firewall operation (viewing rules, enabling/disabling, adding/deleting) requires your server's sudo password. This is because UFW requires root access.
+
+**How it works:**
+
+- When you open the Firewall page, a password prompt appears before anything loads
+- You enter your sudo password once per page visit
+- The password is held in memory for that session only — it is **never saved** to the database, cookies, or local storage
+- When you leave the page or reload, the password is gone and you will be asked again next time
+- If you enter the wrong password, it tells you immediately and lets you retry
+
+This is intentional. Firewall changes are high-impact (a wrong rule can lock you out of SSH), so requiring the password every time adds a deliberate friction that prevents accidental changes.
+
+### Important notes
+
+* **UFW must be enabled** for rules to take effect. The status bar at the top of the Firewall page shows whether it is active. Rules you add are saved even when UFW is disabled — they activate when you enable it.
+* **SSH lockout risk** — if you add a deny rule on port 22 without first allowing your IP, you will lose SSH access. Always add an allow rule for your IP before adding any deny rule on port 22.
+* **VPSMyth backend port (2026)** is bound to `127.0.0.1` only — it is never reachable from outside regardless of firewall rules. You do not need to add a UFW rule for it.
+* **Docker bypasses UFW** by default — Docker writes its own `iptables` rules directly, so `ufw deny` on a Docker-published port may not work as expected. To fix this, do not publish Docker ports to `0.0.0.0`; instead bind them to `127.0.0.1` (e.g. `-p 127.0.0.1:3306:3306`). VPSMyth does this automatically for all database containers it manages.
+
+### Recovery if you lock yourself out of SSH
+
+If you accidentally block SSH via UFW, you need to access your server through your hosting provider's **web console** (VNC/KVM console — available in most VPS dashboards like Hetzner, DigitalOcean, Contabo, etc.) and run:
+
+```bash
+sudo ufw delete <rule-number>
+# or to disable UFW entirely:
+sudo ufw disable
+```
 
 ---
 
@@ -296,6 +337,48 @@ To remove a restriction, click **Remove** next to any entry. When the last entry
 | `2001:db8::1` | `2001:db8::1/128` | Exactly that IPv6 address |
 | `10.0.0.0/8` | `10.0.0.0/8` | Entire `10.x.x.x` subnet |
 | `192.168.1.0/24` | `192.168.1.0/24` | All `192.168.1.x` addresses |
+
+### When you should use it
+
+Use IP whitelisting when you have a **stable, predictable IP**:
+
+* **Office or workplace** — your office router always has the same public IP. Whitelist it and the whole team is covered.
+* **Home with a static IP** — some ISPs provide a fixed IP (check with your ISP). If yours does, whitelist it.
+* **VPN with a fixed exit IP** — set up WireGuard or buy a VPN that gives you a dedicated IP. Whitelist that VPN IP and connect through it whenever you need the panel.
+
+### When you should NOT use it
+
+Do not use IP whitelisting if your IP changes regularly:
+
+* **Home WiFi with a dynamic IP** — most ISPs (especially in countries like Bangladesh, India, etc.) reassign your public IP every time your router reconnects. Today your IP is `144.48.109.24`, tomorrow it could be `144.48.137.91`. If you whitelist `/32` (a single IP) and your IP changes, you are locked out.
+* **Mobile data** — mobile IPs change constantly. Never whitelist a mobile IP as `/32`.
+* **Shared or public networks** — whitelisting a shared network IP would let everyone on that network in.
+
+In these cases, skip IP whitelisting entirely. The panel is already protected by login authentication and brute-force lockout — that is good enough for most self-hosted setups.
+
+### Using a subnet range as a safer middle ground
+
+If your ISP always assigns you IPs from the same block (e.g. always somewhere in `144.48.109.x`), you can whitelist the entire `/24` subnet instead of a single IP:
+
+```
+144.48.109.0/24
+```
+
+This allows any IP from `144.48.109.0` to `144.48.109.255` — so even if your IP changes within that range, you stay in. To find your current subnet, look at your IP (shown on the Security page) and replace the last number with `0`, then add `/24`.
+
+> This is a tradeoff — it is less strict than a single `/32` but much more practical than nothing when you have a dynamic IP. If your ISP regularly moves you across different subnets, this still won't help and you are better off with a VPN.
+
+### Recovery if you get locked out
+
+If you accidentally lock yourself out, SSH into your server and run:
+
+```bash
+sqlite3 /opt/vpsmyth/vpsmyth.db "DELETE FROM ip_whitelist;"
+echo "" | sudo tee /etc/nginx/vpsmyth/whitelist.conf
+sudo nginx -s reload
+```
+
+This clears the whitelist completely. The panel is accessible to all IPs again immediately.
 
 ---
 

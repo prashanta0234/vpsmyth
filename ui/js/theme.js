@@ -13,6 +13,12 @@ themeToggle.addEventListener('click', () => {
     localStorage.setItem('theme', currentTheme);
 });
 
+function getLoginURL() {
+    const parts = window.location.pathname.split('/');
+    parts[parts.length - 1] = 'login.html';
+    return parts.join('/');
+}
+
 // Logout logic
 const logoutBtn = document.getElementById('logout-btn');
 if (logoutBtn) {
@@ -21,7 +27,7 @@ if (logoutBtn) {
         try {
             const response = await fetch('/api/auth/logout', { method: 'POST' });
             if (response.ok) {
-                window.location.href = '/login.html';
+                window.location.href = getLoginURL();
             }
         } catch (err) {
             console.error('Logout failed:', err);
@@ -30,5 +36,5 @@ if (logoutBtn) {
 }
 
 function handleAuthError() {
-    window.location.href = '/login.html';
+    window.location.href = getLoginURL();
 }
