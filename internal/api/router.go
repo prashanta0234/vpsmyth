@@ -118,6 +118,13 @@ func RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/security/whitelist/delete", HandleDeleteWhitelist)
 	mux.HandleFunc("/api/security/myip", HandleGetMyIP)
 
+	// Database routes
+	mux.HandleFunc("/api/databases", HandleListDatabases)
+	mux.HandleFunc("/api/databases/engines", HandleGetEngines)
+	mux.HandleFunc("/api/databases/deploy", HandleDeployDatabase)
+	mux.HandleFunc("/api/databases/action", HandleDatabaseAction)
+	mux.HandleFunc("/api/databases/conninfo", HandleDatabaseConnInfo)
+
 	// Cron routes
 	mux.HandleFunc("/api/cron/jobs", HandleListCronJobs)
 	mux.HandleFunc("/api/cron/jobs/add", HandleAddCronJob)

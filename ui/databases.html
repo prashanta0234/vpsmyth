@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VPSMyth | Databases</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* Engine picker */
+        .engine-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 0.75rem; margin-bottom: 1.25rem; }
+        .engine-card {
+            border: 2px solid var(--border,#e2e8f0); border-radius: 10px; padding: 0.9rem 0.5rem;
+            text-align: center; cursor: pointer; transition: all 0.15s; background: var(--bg,#f8fafc);
+        }
+        .engine-card:hover { border-color: #4f46e5; }
+        .engine-card.selected { border-color: #4f46e5; background: #eef2ff; }
+        .engine-icon { height: 36px; display: flex; align-items: center; justify-content: center; margin-bottom: 0.3rem; }
+        .engine-label { font-size: 0.8rem; font-weight: 600; color: var(--text,#1e293b); }
+        .engine-sub { font-size: 0.7rem; color: var(--muted,#94a3b8); margin-top: 0.1rem; }
+        /* DB cards grid */
+        .db-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px,1fr)); gap: 1.25rem; }
+        .db-card {
+            background: var(--card-bg,#fff); border: 1px solid var(--border,#e2e8f0);
+            border-radius: 12px; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;
+        }
+        .db-card-header { display: flex; align-items: center; gap: 0.75rem; }
+        .db-engine-badge {
+            width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center;
+            justify-content: center; flex-shrink: 0; padding: 6px; box-sizing: border-box;
+        }
+        .badge-mysql    { background: #fff3e0; }
+        .badge-postgres { background: #e8f4fd; }
+        .badge-mongodb  { background: #e8f5e9; }
+        .badge-redis    { background: #fce4ec; }
+        .db-name { font-weight: 600; font-size: 0.95rem; }
+        .db-meta { font-size: 0.78rem; color: var(--muted,#94a3b8); margin-top: 0.1rem; }
+        .db-status-row { display: flex; align-items: center; justify-content: space-between; }
+        /* Status pills */
+        .status-pill {
+            display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0.7rem;
+            border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+        }
+        .pill-running    { background: #dcfce7; color: #15803d; }
+        .pill-stopped,
+        .pill-exited     { background: #f1f5f9; color: #64748b; }
+        .pill-deploying  { background: #fef3c7; color: #92400e; }
+        .pill-error      { background: #fef2f2; color: #dc2626; }
+        .pill-notfound   { background: #f1f5f9; color: #94a3b8; }
+        .pulse { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+        /* Action buttons */
+        .db-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+        .btn-sm {
+            padding: 0.3rem 0.65rem; border-radius: 6px; font-size: 0.75rem;
+            font-family: inherit; font-weight: 500; cursor: pointer; border: 1px solid;
+            transition: all 0.15s; white-space: nowrap;
+        }
+        .btn-start   { border-color: #6ee7b7; color: #065f46; background: none; }
+        .btn-start:hover { background: #d1fae5; }
+        .btn-stop    { border-color: #fcd34d; color: #92400e; background: none; }
+        .btn-stop:hover { background: #fffbeb; }
+        .btn-restart { border-color: #bfdbfe; color: #1e40af; background: none; }
+        .btn-restart:hover { background: #dbeafe; }
+        .btn-conn    { border-color: #e9d5ff; color: #7c3aed; background: none; }
+        .btn-conn:hover { background: #f5f3ff; }
+        .btn-del     { border-color: #fca5a5; color: #ef4444; background: none; }
+        .btn-del:hover { background: #fef2f2; }
+        .btn-sm:disabled { opacity: 0.45; cursor: not-allowed; }
+        /* Empty state */
+        .empty-state {
+            text-align: center; padding: 3rem 1rem; color: var(--muted,#94a3b8);
+        }
+        .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+        .empty-state p { font-size: 0.9rem; }
+        /* Deploy button */
+        .btn-primary {
+            padding: 0.55rem 1.25rem; background: #4f46e5; color: #fff;
+            border: none; border-radius: 8px; font-family: inherit; font-size: 0.875rem;
+            font-weight: 600; cursor: pointer; transition: background 0.15s;
+        }
+        .btn-primary:hover { background: #4338ca; }
+        .btn-primary:disabled { background: #a5b4fc; cursor: not-allowed; }
+        /* Modal */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+            z-index: 1000; align-items: center; justify-content: center; padding: 1rem;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal {
+            background: var(--card-bg,#fff); border-radius: 14px; width: 100%;
+            max-width: 520px; max-height: 90vh; overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+        .modal-header {
+            padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border,#e2e8f0);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .modal-header h3 { margin: 0; font-size: 1rem; font-weight: 600; }
+        .modal-close { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--muted,#94a3b8); }
+        .modal-close:hover { color: var(--text,#1e293b); }
+        .modal-body { padding: 1.5rem; }
+        .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--border,#e2e8f0); display: flex; justify-content: flex-end; gap: 0.75rem; }
+        .field { margin-bottom: 1.1rem; }
+        .field label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--muted,#64748b); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; }
+        .field input, .field select { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--border,#e2e8f0); border-radius: 8px; font-family: inherit; font-size: 0.875rem; background: var(--bg,#f8fafc); color: var(--text,#1e293b); box-sizing: border-box; }
+        .field input:focus, .field select:focus { outline: none; border-color: #4f46e5; }
+        .field-row { display: flex; gap: 0.75rem; }
+        .field-row .field { flex: 1; }
+        .form-error { background: #fef2f2; border: 1px solid #fca5a5; color: #ef4444; border-radius: 8px; padding: 0.6rem 0.9rem; font-size: 0.85rem; margin-bottom: 1rem; display: none; }
+        .warning-box { background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; border-radius: 8px; padding: 0.65rem 0.9rem; font-size: 0.8rem; margin-top: 0.4rem; display: none; }
+        .warning-box.show { display: block; }
+        .btn-secondary { padding: 0.5rem 1.1rem; background: none; color: var(--text,#1e293b); border: 1px solid var(--border,#e2e8f0); border-radius: 8px; font-family: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer; }
+        .btn-secondary:hover { background: var(--bg,#f8fafc); }
+        /* Connection modal */
+        .conn-block { background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 0.85rem 1rem; font-family: monospace; font-size: 0.82rem; word-break: break-all; position: relative; margin-bottom: 0.75rem; }
+        .copy-btn { position: absolute; top: 0.5rem; right: 0.5rem; padding: 0.25rem 0.6rem; border-radius: 5px; font-size: 0.72rem; border: none; cursor: pointer; background: #334155; color: #94a3b8; font-family: inherit; }
+        .copy-btn:hover { background: #475569; color: #e2e8f0; }
+        .conn-label { font-size: 0.72rem; font-weight: 600; color: var(--muted,#64748b); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; margin-top: 0.9rem; }
+        .conn-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border,#e2e8f0); }
+        .conn-row:last-child { border-bottom: none; }
+        .conn-key { font-size: 0.78rem; color: var(--muted,#64748b); width: 80px; flex-shrink: 0; }
+        .conn-val { font-family: monospace; font-size: 0.82rem; flex: 1; }
+        .pw-mask { cursor: pointer; user-select: none; }
+        /* Deploy progress */
+        .deploy-progress { display: flex; align-items: center; gap: 0.6rem; font-size: 0.82rem; color: #92400e; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 0.65rem 0.9rem; }
+        .spinner { width: 14px; height: 14px; border: 2px solid #fcd34d; border-top-color: #92400e; border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        /* Delete modal */
+        .check-row { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.75rem; font-size: 0.875rem; }
+        .check-row input[type=checkbox] { width: 16px; height: 16px; }
+    </style>
+</head>
+<body>
+    <aside>
+        <div class="brand">
+            <img src="/assets/logo.png" alt="VPSMyth Logo" class="brand-logo">
+            <span class="brand-name">VPSMyth</span>
+        </div>
+        <nav>
+            <a href="index.html" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                <span>Dashboard</span>
+            </a>
+            <a href="apps.html" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                <span>Applications</span>
+            </a>
+            <a href="containers.html" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                <span>Docker Containers</span>
+            </a>
+            <a href="databases.html" class="nav-item active">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
+                <span>Databases</span>
+            </a>
+            <a href="system.html" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924-1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                <span>System Tools</span>
+            </a>
+            <a href="settings.html" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                <span>Settings</span>
+            </a>
+            <a href="monitoring.html" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                <span>Monitoring</span>
+            </a>
+            <a href="security.html" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                <span>Security</span>
+            </a>
+            <a href="firewall.html" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"></path></svg>
+                <span>Firewall</span>
+            </a>
+            <a href="cron.html" class="nav-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span>Cron Jobs</span>
+            </a>
+            <a href="#" class="nav-item" id="logout-btn" style="margin-top:auto;color:#ef4444;">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                <span>Logout</span>
+            </a>
+        </nav>
+    </aside>
+
+    <main>
+        <div class="top-bar">
+            <div class="search-container" style="visibility:hidden;"><input type="text"></div>
+            <div class="actions">
+                <button class="theme-toggle" id="theme-toggle" title="Toggle Theme">
+                    <svg class="sun-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.364l-.707-.707M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <svg class="moon-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+            <div>
+                <h1>Databases</h1>
+                <p>Deploy and manage database containers.</p>
+            </div>
+            <button class="btn-primary" id="btn-deploy">+ Deploy Database</button>
+        </div>
+
+        <div id="db-grid-container"><p style="color:var(--muted,#94a3b8);font-size:0.875rem;">Loading...</p></div>
+    </main>
+
+    <!-- Deploy Modal -->
+    <div class="modal-overlay" id="deploy-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Deploy Database</h3>
+                <button class="modal-close" id="deploy-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-error" id="deploy-error"></div>
+
+                <div class="field">
+                    <label>Engine</label>
+                    <div class="engine-grid" id="engine-grid">
+                        <div class="engine-card selected" data-engine="mysql">
+                            <div class="engine-icon"><img src="/assets/MySQL.png" alt="MySQL" style="width:32px;height:32px;object-fit:contain;"></div>
+                            <div class="engine-label">MySQL</div>
+                            <div class="engine-sub">Relational</div>
+                        </div>
+                        <div class="engine-card" data-engine="postgres">
+                            <div class="engine-icon"><img src="/assets/Postgresql.png" alt="PostgreSQL" style="width:32px;height:32px;object-fit:contain;"></div>
+                            <div class="engine-label">PostgreSQL</div>
+                            <div class="engine-sub">Relational</div>
+                        </div>
+                        <div class="engine-card" data-engine="mongodb">
+                            <div class="engine-icon"><img src="/assets/mongodb.png" alt="MongoDB" style="width:32px;height:32px;object-fit:contain;"></div>
+                            <div class="engine-label">MongoDB</div>
+                            <div class="engine-sub">Document</div>
+                        </div>
+                        <div class="engine-card" data-engine="redis">
+                            <div class="engine-icon"><img src="/assets/redis.png" alt="Redis" style="width:32px;height:32px;object-fit:contain;"></div>
+                            <div class="engine-label">Redis</div>
+                            <div class="engine-sub">Key-Value</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="field-row">
+                    <div class="field">
+                        <label>Name</label>
+                        <input type="text" id="f-db-name" placeholder="e.g. myapp-db">
+                    </div>
+                    <div class="field">
+                        <label>Version</label>
+                        <select id="f-db-version"></select>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>Password (root / admin)</label>
+                    <input type="text" id="f-db-password" placeholder="Strong password">
+                </div>
+
+                <div class="field-row">
+                    <div class="field">
+                        <label>Port</label>
+                        <input type="number" id="f-db-port" min="1" max="65535">
+                    </div>
+                    <div class="field">
+                        <label>Bind IP</label>
+                        <select id="f-db-bind">
+                            <option value="127.0.0.1">127.0.0.1 — Local only (safe)</option>
+                            <option value="0.0.0.0">0.0.0.0 — All interfaces (⚠ public)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="warning-box" id="bind-warning">
+                    ⚠ Binding to 0.0.0.0 exposes your database port to the internet. Make sure your firewall blocks this port from public access.
+                </div>
+
+                <div style="font-size:0.78rem;color:var(--muted,#94a3b8);margin-top:0.5rem;">
+                    The image will be pulled from Docker Hub. This may take a few minutes on the first deploy.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="deploy-cancel">Cancel</button>
+                <button class="btn-primary" id="deploy-submit">Deploy</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Connection Info Modal -->
+    <div class="modal-overlay" id="conn-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="conn-modal-title">Connection Info</h3>
+                <button class="modal-close" id="conn-close">&times;</button>
+            </div>
+            <div class="modal-body" id="conn-modal-body">
+                <p style="color:var(--muted,#94a3b8);font-size:0.875rem;">Loading...</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="conn-dismiss">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirm Modal -->
+    <div class="modal-overlay" id="delete-modal">
+        <div class="modal" style="max-width:420px;">
+            <div class="modal-header">
+                <h3>Delete Database</h3>
+                <button class="modal-close" id="delete-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:0.9rem;">Are you sure you want to delete <strong id="delete-db-name"></strong>?</p>
+                <p style="font-size:0.85rem;color:var(--muted,#64748b);margin-top:0.5rem;">The container will be stopped and removed.</p>
+                <div class="check-row">
+                    <input type="checkbox" id="delete-volume-cb">
+                    <label for="delete-volume-cb" style="font-size:0.875rem;cursor:pointer;">
+                        Also delete the data volume <span style="color:#ef4444;">(permanent — all data lost)</span>
+                    </label>
+                </div>
+                <div style="margin-top:1rem;">
+                    <label style="display:block;font-size:0.75rem;font-weight:600;color:var(--muted,#64748b);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;">Admin Password</label>
+                    <input type="password" id="delete-password" placeholder="Enter your VPSMyth password" style="width:100%;padding:0.5rem 0.75rem;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-family:inherit;font-size:0.875rem;background:var(--bg,#f8fafc);color:var(--text,#1e293b);box-sizing:border-box;">
+                    <div id="delete-pw-error" style="font-size:0.75rem;color:#ef4444;margin-top:0.3rem;display:none;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="delete-cancel">Cancel</button>
+                <button class="btn-primary" id="delete-confirm" style="background:#ef4444;">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/theme.js"></script>
+    <script src="js/databases.js"></script>
+</body>
+</html>
