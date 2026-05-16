@@ -10,6 +10,7 @@ import (
 
 	"github.com/prashanta0234/vpsmyth/internal/api"
 	"github.com/prashanta0234/vpsmyth/internal/auth"
+	cronrunner "github.com/prashanta0234/vpsmyth/internal/cron"
 	"github.com/prashanta0234/vpsmyth/internal/db"
 	"github.com/prashanta0234/vpsmyth/internal/monitoring"
 )
@@ -103,6 +104,9 @@ func main() {
 
 	// Start background monitoring collector
 	monitoring.Start()
+
+	// Start cron scheduler
+	cronrunner.Start()
 
 	// Register all routes
 	mux := http.DefaultServeMux

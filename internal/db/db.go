@@ -55,6 +55,10 @@ func InitDB(dbPath string) error {
 		return fmt.Errorf("failed to create security tables: %w", err)
 	}
 
+	if err := InitCronTables(); err != nil {
+		return fmt.Errorf("failed to create cron tables: %w", err)
+	}
+
 	fmt.Println("Database initialized successfully.")
 	return nil
 }
