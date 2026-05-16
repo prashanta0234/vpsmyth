@@ -124,6 +124,8 @@ func RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/databases/deploy", HandleDeployDatabase)
 	mux.HandleFunc("/api/databases/action", HandleDatabaseAction)
 	mux.HandleFunc("/api/databases/conninfo", HandleDatabaseConnInfo)
+	mux.HandleFunc("/api/databases/logs", HandleDatabaseLogs)
+	mux.HandleFunc("/api/databases/stats", HandleDatabaseStats)
 
 	// Cron routes
 	mux.HandleFunc("/api/cron/jobs", HandleListCronJobs)

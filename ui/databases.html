@@ -68,7 +68,19 @@
         .btn-conn:hover { background: #f5f3ff; }
         .btn-del     { border-color: #fca5a5; color: #ef4444; background: none; }
         .btn-del:hover { background: #fef2f2; }
+        .btn-logs    { border-color: #cbd5e1; color: #475569; background: none; }
+        .btn-logs:hover { background: #f1f5f9; }
         .btn-sm:disabled { opacity: 0.45; cursor: not-allowed; }
+        /* Stats row on card */
+        .db-stats-row { display: flex; gap: 1rem; font-size: 0.75rem; color: var(--muted,#94a3b8); padding-top: 0.25rem; }
+        .db-stat { display: flex; align-items: center; gap: 0.3rem; }
+        /* Logs modal */
+        .logs-pre {
+            background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 1rem;
+            font-family: monospace; font-size: 0.78rem; line-height: 1.5;
+            height: 420px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+            margin: 0;
+        }
         /* Empty state */
         .empty-state {
             text-align: center; padding: 3rem 1rem; color: var(--muted,#94a3b8);
@@ -330,6 +342,25 @@
             <div class="modal-footer">
                 <button class="btn-secondary" id="delete-cancel">Cancel</button>
                 <button class="btn-primary" id="delete-confirm" style="background:#ef4444;">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logs Modal -->
+    <div class="modal-overlay" id="logs-modal">
+        <div class="modal" style="max-width:760px;">
+            <div class="modal-header">
+                <h3 id="logs-modal-title">Logs</h3>
+                <div style="display:flex;align-items:center;gap:0.75rem;">
+                    <button id="logs-refresh" class="btn-secondary" style="padding:0.3rem 0.8rem;font-size:0.8rem;">↺ Refresh</button>
+                    <button class="modal-close" id="logs-close">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body" style="padding:1rem 1.5rem;">
+                <pre class="logs-pre" id="logs-content">Loading...</pre>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="logs-dismiss">Close</button>
             </div>
         </div>
     </div>

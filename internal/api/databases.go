@@ -342,6 +342,69 @@ func HandleDatabaseConnInfo(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func HandleDatabaseLogs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	id, err := strconv.Atoi(r.URL.Query().Get("id"))
+	if err != nil || id <= 0 {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+	record, err := db.GetManagedDB(id)
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	out, _ := exec.Command("docker", "logs", "--tail", "200", "--timestamps", record.ContainerName).CombinedOutput()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"logs": string(out)})
+}
+
+func HandleDatabaseStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	id, err := strconv.Atoi(r.URL.Query().Get("id"))
+	if err != nil || id <= 0 {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+	record, err := db.GetManagedDB(id)
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	eng := engines[record.Engine]
+
+	// Started-at and status from docker inspect
+	startedAt, _ := exec.Command("docker", "inspect",
+		"--format", "{{.State.StartedAt}}", record.ContainerName).Output()
+	status, _ := exec.Command("docker", "inspect",
+		"--format", "{{.State.Status}}", record.ContainerName).Output()
+
+	// Storage via du inside the container
+	storage := "—"
+	duOut, err := exec.Command("docker", "exec", record.ContainerName,
+		"du", "-sh", eng.DataDir).Output()
+	if err == nil {
+		parts := strings.Fields(string(duOut))
+		if len(parts) > 0 {
+			storage = parts[0]
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"started_at": strings.TrimSpace(string(startedAt)),
+		"status":     strings.TrimSpace(string(status)),
+		"storage":    storage,
+	})
+}
+
 func HandleGetEngines(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)

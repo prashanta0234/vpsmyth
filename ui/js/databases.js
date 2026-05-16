@@ -4,6 +4,8 @@ let engineMeta = {};
 let selectedEngine = 'mysql';
 let deletingID = null;
 let pollTimer = null;
+let logsCurrentID = null;
+const dbStats = {};
 
 const ENGINE_ICONS = { mysql: '/assets/MySQL.png', postgres: '/assets/Postgresql.png', mongodb: '/assets/mongodb.png', redis: '/assets/redis.png' };
 const ENGINE_LABELS = { mysql: 'MySQL', postgres: 'PostgreSQL', mongodb: 'MongoDB', redis: 'Redis' };
@@ -79,6 +81,13 @@ function buildCard(d) {
 
     const errLine = isError ? `<div class="deploy-progress" style="background:#fef2f2;border-color:#fca5a5;color:#dc2626;font-size:0.78rem;margin-top:0.25rem;word-break:break-all;">${escHtml(d.deploy_error)}</div>` : '';
 
+    const stats = dbStats[d.id];
+    const statsHtml = (isReady && stats) ? `
+        <div class="db-stats-row">
+            <span class="db-stat">💾 ${escHtml(stats.storage)}</span>
+            ${stats.started_at ? `<span class="db-stat">⏱ Up since ${formatDate(stats.started_at)}</span>` : ''}
+        </div>` : '';
+
     return `<div class="db-card" id="card-${d.id}">
         <div class="db-card-header">
             <div class="db-engine-badge ${BADGE_CLASS[d.engine] || ''}"><img src="${ENGINE_ICONS[d.engine] || ''}" alt="${d.engine}" style="width:26px;height:26px;object-fit:contain;"></div>
@@ -93,11 +102,13 @@ function buildCard(d) {
         </div>
         ${isDeploying ? '<div class="deploy-progress"><div class="spinner"></div>Pulling image and starting container…</div>' : ''}
         ${errLine}
+        ${statsHtml}
         <div class="db-actions">
             <button class="btn-sm btn-start" data-id="${d.id}" ${disAll} ${disRun}>▶ Start</button>
             <button class="btn-sm btn-stop" data-id="${d.id}" ${disAll} ${disStop}>■ Stop</button>
             <button class="btn-sm btn-restart" data-id="${d.id}" ${disAll} ${(!running) ? 'disabled' : ''}>↺ Restart</button>
             <button class="btn-sm btn-conn" data-id="${d.id}" data-name="${escHtml(d.name)}" ${isDeploying ? 'disabled' : ''}>⊕ Connect</button>
+            <button class="btn-sm btn-logs" data-id="${d.id}" data-name="${escHtml(d.name)}" ${isDeploying ? 'disabled' : ''}>📋 Logs</button>
             <button class="btn-sm btn-del" data-id="${d.id}" data-name="${escHtml(d.name)}" ${isDeploying ? 'disabled' : ''}>Delete</button>
         </div>
     </div>`;
@@ -112,7 +123,32 @@ function wireCard(d) {
     card.querySelector('.btn-stop')?.addEventListener('click', () => act('stop'));
     card.querySelector('.btn-restart')?.addEventListener('click', () => act('restart'));
     card.querySelector('.btn-conn')?.addEventListener('click', () => showConnInfo(d.id, d.name));
+    card.querySelector('.btn-logs')?.addEventListener('click', () => showLogs(d.id, d.name));
     card.querySelector('.btn-del')?.addEventListener('click', () => openDeleteModal(d.id, d.name));
+
+    if (d.deploy_status === 'ready' && d.docker_status === 'running') {
+        fetchStats(d.id);
+    }
+}
+
+async function fetchStats(id) {
+    try {
+        const res = await api(`/api/databases/stats?id=${id}`);
+        if (!res.ok) return;
+        const stats = await res.json();
+        dbStats[id] = stats;
+        const card = document.getElementById(`card-${id}`);
+        if (!card) return;
+        const existing = card.querySelector('.db-stats-row');
+        if (existing) existing.remove();
+        const actionsEl = card.querySelector('.db-actions');
+        if (actionsEl && stats.storage) {
+            const row = document.createElement('div');
+            row.className = 'db-stats-row';
+            row.innerHTML = `<span class="db-stat">💾 ${escHtml(stats.storage)}</span>${stats.started_at ? `<span class="db-stat">⏱ Up since ${formatDate(stats.started_at)}</span>` : ''}`;
+            actionsEl.before(row);
+        }
+    } catch { /* ignore */ }
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────────
@@ -194,6 +230,27 @@ function copyText(elId) {
         const copyBtns = document.querySelectorAll('.copy-btn');
         copyBtns.forEach(b => { b.textContent = 'Copied!'; setTimeout(() => b.textContent = 'Copy', 1500); });
     });
+}
+
+// ── Logs modal ────────────────────────────────────────────────────────────────
+
+async function showLogs(id, name) {
+    logsCurrentID = id;
+    document.getElementById('logs-modal-title').textContent = `Logs — ${name}`;
+    document.getElementById('logs-content').textContent = 'Loading...';
+    document.getElementById('logs-modal').classList.add('open');
+    await fetchLogs(id);
+}
+
+async function fetchLogs(id) {
+    try {
+        const res = await api(`/api/databases/logs?id=${id}`);
+        if (!res.ok) { document.getElementById('logs-content').textContent = 'Failed to load logs.'; return; }
+        const data = await res.json();
+        const pre = document.getElementById('logs-content');
+        pre.textContent = data.logs || '(no logs)';
+        pre.scrollTop = pre.scrollHeight;
+    } catch { document.getElementById('logs-content').textContent = 'Error loading logs.'; }
 }
 
 // ── Delete modal ──────────────────────────────────────────────────────────────
@@ -333,6 +390,10 @@ document.getElementById('delete-close').addEventListener('click', () => document
 document.getElementById('delete-cancel').addEventListener('click', () => document.getElementById('delete-modal').classList.remove('open'));
 document.getElementById('delete-confirm').addEventListener('click', confirmDelete);
 
+document.getElementById('logs-close').addEventListener('click', () => document.getElementById('logs-modal').classList.remove('open'));
+document.getElementById('logs-dismiss').addEventListener('click', () => document.getElementById('logs-modal').classList.remove('open'));
+document.getElementById('logs-refresh').addEventListener('click', () => { if (logsCurrentID) fetchLogs(logsCurrentID); });
+
 document.querySelectorAll('.engine-card').forEach(card => {
     card.addEventListener('click', () => selectEngine(card.dataset.engine));
 });
@@ -342,7 +403,7 @@ document.getElementById('f-db-bind').addEventListener('change', e => {
 });
 
 // Close modals on overlay click
-['deploy-modal','conn-modal','delete-modal'].forEach(id => {
+['deploy-modal','conn-modal','delete-modal','logs-modal'].forEach(id => {
     document.getElementById(id).addEventListener('click', e => {
         if (e.target.id === id) document.getElementById(id).classList.remove('open');
     });
