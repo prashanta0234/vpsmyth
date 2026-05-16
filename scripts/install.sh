@@ -329,6 +329,13 @@ sudo systemctl reload nginx
 
 echo "Nginx configured to proxy to VPSMyth."
 
+#################################
+# Sudoers — allow vpsmyth to run ufw without a password prompt
+#################################
+echo "ALL ALL=(ALL) NOPASSWD: /usr/sbin/ufw" | sudo tee /etc/sudoers.d/vpsmyth-ufw >/dev/null
+sudo chmod 440 /etc/sudoers.d/vpsmyth-ufw
+echo "UFW sudoers rule added."
+
 # Detect server IP for the final message
 SERVER_IP=$(hostname -I | awk '{print $1}')
 

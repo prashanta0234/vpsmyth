@@ -186,7 +186,9 @@ document.getElementById('add-my-ip-btn').addEventListener('click', () => {
 document.getElementById('logout-btn').addEventListener('click', async e => {
     e.preventDefault();
     await fetch('/api/auth/logout', { method: 'POST' });
-    window.location.href = '/login.html';
+    const parts = window.location.pathname.split('/');
+    parts[parts.length - 1] = 'login.html';
+    window.location.href = parts.join('/');
 });
 
 // Init

@@ -114,6 +114,13 @@ func main() {
 	}
 
 	addr := "127.0.0.1:" + port
-	fmt.Printf("VPSMyth server starting on http://%s\n", addr)
+
+	panelPath := os.Getenv("PANEL_PATH")
+	if panelPath != "" {
+		fmt.Printf("VPSMyth server starting — Login: http://YOUR_SERVER_IP/%s/login.html\n", panelPath)
+	} else {
+		fmt.Printf("VPSMyth server starting on http://%s\n", addr)
+	}
+
 	log.Fatal(http.ListenAndServe(addr, api.IPWhitelistMiddleware(api.AuthMiddleware(mux))))
 }
