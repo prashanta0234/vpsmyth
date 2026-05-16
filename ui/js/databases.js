@@ -109,6 +109,7 @@ function buildCard(d) {
             <button class="btn-sm btn-restart" data-id="${d.id}" ${disAll} ${(!running) ? 'disabled' : ''}>↺ Restart</button>
             <button class="btn-sm btn-conn" data-id="${d.id}" data-name="${escHtml(d.name)}" ${isDeploying ? 'disabled' : ''}>⊕ Connect</button>
             <button class="btn-sm btn-logs" data-id="${d.id}" data-name="${escHtml(d.name)}" ${isDeploying ? 'disabled' : ''}>📋 Logs</button>
+            <button class="btn-sm btn-backup" data-id="${d.id}" ${(!running) ? 'disabled' : ''}>↓ Backup</button>
             <button class="btn-sm btn-del" data-id="${d.id}" data-name="${escHtml(d.name)}" ${isDeploying ? 'disabled' : ''}>Delete</button>
         </div>
     </div>`;
@@ -124,11 +125,20 @@ function wireCard(d) {
     card.querySelector('.btn-restart')?.addEventListener('click', () => act('restart'));
     card.querySelector('.btn-conn')?.addEventListener('click', () => showConnInfo(d.id, d.name));
     card.querySelector('.btn-logs')?.addEventListener('click', () => showLogs(d.id, d.name));
+    card.querySelector('.btn-backup')?.addEventListener('click', () => downloadBackup(d.id));
     card.querySelector('.btn-del')?.addEventListener('click', () => openDeleteModal(d.id, d.name));
 
     if (d.deploy_status === 'ready' && d.docker_status === 'running') {
         fetchStats(d.id);
     }
+}
+
+function downloadBackup(id) {
+    const a = document.createElement('a');
+    a.href = `/api/databases/backup?id=${id}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 }
 
 async function fetchStats(id) {

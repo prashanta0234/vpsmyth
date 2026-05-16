@@ -3,10 +3,12 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/prashanta0234/vpsmyth/internal/db"
 )
@@ -403,6 +405,69 @@ func HandleDatabaseStats(w http.ResponseWriter, r *http.Request) {
 		"status":     strings.TrimSpace(string(status)),
 		"storage":    storage,
 	})
+}
+
+func HandleDatabaseBackup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	id, err := strconv.Atoi(r.URL.Query().Get("id"))
+	if err != nil || id <= 0 {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+	record, err := db.GetManagedDB(id)
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	eng := engines[record.Engine]
+	ts := time.Now().Format("20060102_150405")
+
+	var args []string
+	var filename, contentType string
+
+	switch record.Engine {
+	case "mysql":
+		filename = fmt.Sprintf("%s_%s.sql", record.Name, ts)
+		contentType = "application/sql"
+		args = []string{"exec", record.ContainerName,
+			"mysqldump", "-uroot", fmt.Sprintf("-p%s", record.RootPassword),
+			"--all-databases", "--no-tablespaces"}
+	case "postgres":
+		filename = fmt.Sprintf("%s_%s.sql", record.Name, ts)
+		contentType = "application/sql"
+		args = []string{"exec", "-e", fmt.Sprintf("PGPASSWORD=%s", record.RootPassword),
+			record.ContainerName, "pg_dumpall", "-U", "postgres"}
+	case "mongodb":
+		filename = fmt.Sprintf("%s_%s.archive.gz", record.Name, ts)
+		contentType = "application/gzip"
+		args = []string{"exec", record.ContainerName,
+			"mongodump",
+			"--username", "admin",
+			"--password", record.RootPassword,
+			"--authenticationDatabase", "admin",
+			"--archive", "--gzip"}
+	case "redis":
+		exec.Command("docker", "exec", record.ContainerName,
+			"redis-cli", "-a", record.RootPassword, "--no-auth-warning", "SAVE").Run()
+		filename = fmt.Sprintf("%s_%s.rdb", record.Name, ts)
+		contentType = "application/octet-stream"
+		args = []string{"cp", record.ContainerName + ":" + eng.DataDir + "/dump.rdb", "-"}
+	default:
+		http.Error(w, "unsupported engine", http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+
+	cmd := exec.Command("docker", args...)
+	cmd.Stdout = w
+	cmd.Stderr = io.Discard
+	cmd.Run()
 }
 
 func HandleGetEngines(w http.ResponseWriter, r *http.Request) {
