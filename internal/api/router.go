@@ -118,6 +118,15 @@ func RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/security/whitelist/delete", HandleDeleteWhitelist)
 	mux.HandleFunc("/api/security/myip", HandleGetMyIP)
 
+	// Cron routes
+	mux.HandleFunc("/api/cron/jobs", HandleListCronJobs)
+	mux.HandleFunc("/api/cron/jobs/add", HandleAddCronJob)
+	mux.HandleFunc("/api/cron/jobs/update", HandleUpdateCronJob)
+	mux.HandleFunc("/api/cron/jobs/delete", HandleDeleteCronJob)
+	mux.HandleFunc("/api/cron/jobs/toggle", HandleToggleCronJob)
+	mux.HandleFunc("/api/cron/jobs/run", HandleRunCronJob)
+	mux.HandleFunc("/api/cron/jobs/runs", HandleGetCronRuns)
+
 	// Monitoring routes
 	mux.HandleFunc("/api/monitoring/system", HandleGetSystemMetrics)
 	mux.HandleFunc("/api/monitoring/breakdown", HandleGetBreakdown)
