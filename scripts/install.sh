@@ -242,6 +242,7 @@ WorkingDirectory=/opt/vpsmyth
 ExecStart=/opt/vpsmyth/vpsmyth
 Restart=on-failure
 Environment="PORT=2026"
+Environment="PANEL_PATH=${PANEL_PATH}"
 Environment="ADMIN_USERNAME=${ADMIN_USERNAME}"
 Environment="ADMIN_PASSWORD=${ADMIN_PASSWORD}"
 

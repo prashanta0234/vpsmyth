@@ -107,6 +107,14 @@ sudo cp -r "$PROJECT_ROOT/ui" /opt/vpsmyth/ui
 
 echo "  Binary and UI updated."
 
+# Patch systemd service to include PANEL_PATH if missing
+if ! grep -q "PANEL_PATH" /etc/systemd/system/vpsmyth.service; then
+    STORED_PATH=$(cat /opt/vpsmyth/panel-path 2>/dev/null || echo "admin")
+    sudo sed -i "s|Environment=\"PORT=2026\"|Environment=\"PORT=2026\"\nEnvironment=\"PANEL_PATH=${STORED_PATH}\"|" /etc/systemd/system/vpsmyth.service
+    sudo systemctl daemon-reload
+    echo "  Patched service with PANEL_PATH=${STORED_PATH}."
+fi
+
 # Restart service
 sudo systemctl start vpsmyth
 echo "  Service restarted."
