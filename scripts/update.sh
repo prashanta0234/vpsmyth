@@ -115,6 +115,15 @@ if ! grep -q "PANEL_PATH" /etc/systemd/system/vpsmyth.service; then
     echo "  Patched service with PANEL_PATH=${STORED_PATH}."
 fi
 
+# Security cleanup for older installs: plaintext admin credentials in the
+# (world-readable) unit, and a sudoers rule letting any user run ufw as root.
+if grep -q "ADMIN_PASSWORD" /etc/systemd/system/vpsmyth.service; then
+    sudo sed -i '/ADMIN_USERNAME\|ADMIN_PASSWORD/d' /etc/systemd/system/vpsmyth.service
+    sudo systemctl daemon-reload
+    echo "  Removed plaintext admin credentials from the service file."
+fi
+sudo rm -f /etc/sudoers.d/vpsmyth-ufw
+
 # Restart service
 sudo systemctl start vpsmyth
 echo "  Service restarted."

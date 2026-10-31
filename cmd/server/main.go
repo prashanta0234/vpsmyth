@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/prashanta0234/vpsmyth/internal/api"
 	"github.com/prashanta0234/vpsmyth/internal/auth"
@@ -98,6 +99,14 @@ func main() {
 	if err := db.InitDB("vpsmyth.db"); err != nil {
 		log.Fatal(err)
 	}
+	// DB holds credentials and secrets in plain text — owner-only.
+	if err := os.Chmod("vpsmyth.db", 0600); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := auth.LoadOrCreateSecret("jwt.secret"); err != nil {
+		log.Fatalf("Failed to load JWT secret: %v", err)
+	}
 
 	// Run setup wizard
 	setupWizard()
@@ -126,5 +135,12 @@ func main() {
 		fmt.Printf("VPSMyth server starting on http://%s\n", addr)
 	}
 
-	log.Fatal(http.ListenAndServe(addr, api.IPWhitelistMiddleware(api.AuthMiddleware(mux))))
+	// No WriteTimeout: deploys and DB backups legitimately run for minutes.
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           api.IPWhitelistMiddleware(api.AuthMiddleware(mux)),
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	log.Fatal(srv.ListenAndServe())
 }

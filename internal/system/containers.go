@@ -92,6 +92,10 @@ func GetContainerLogs(id string) (string, error) {
 
 // PullAndRunImage pulls a Docker image and runs it as a container.
 func PullAndRunImage(imageName, containerName string, port int, env map[string]string) error {
+	if strings.HasPrefix(imageName, "-") || strings.HasPrefix(containerName, "-") {
+		return fmt.Errorf("invalid image or container name")
+	}
+
 	// 1. Pull the image
 	pullCmd := exec.Command("docker", "pull", imageName)
 	if err := pullCmd.Run(); err != nil {

@@ -49,9 +49,9 @@ func ListApps() ([]DeploymentMetadata, error) {
 		}
 
 		// 3. Fill in missing info from Docker if metadata is missing or incomplete
-		if meta.AppName == "" {
-			meta.AppName = containerName // Fallback to container name
-		}
+		// Always use the container name: every app action keys on it, and Docker
+		// restricts it to [a-zA-Z0-9_.-] so the UI can render it without escaping.
+		meta.AppName = containerName
 		meta.ContainerID = containerID
 		meta.Status = status
 

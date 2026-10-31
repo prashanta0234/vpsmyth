@@ -99,10 +99,12 @@ fi
 #################################
 # 3. Install Go (must match go.mod)
 #################################
-GO_VERSION="1.25.5"
+# GO_MIN matches go.mod; older releases carry known stdlib CVEs.
+GO_MIN="1.26.10"
+GO_VERSION="1.27.3"
 export PATH=/usr/local/go/bin:$PATH
 CURRENT_GO=$(go env GOVERSION 2>/dev/null | sed 's/^go//' || true)
-if [ -z "$CURRENT_GO" ] || [ "$(printf '%s\n' "$GO_VERSION" "$CURRENT_GO" | sort -V | head -n1)" != "$GO_VERSION" ]; then
+if [ -z "$CURRENT_GO" ] || [ "$(printf '%s\n' "$GO_MIN" "$CURRENT_GO" | sort -V | head -n1)" != "$GO_MIN" ]; then
     echo "Installing Go ${GO_VERSION} (found: ${CURRENT_GO:-none})..."
     case "$(uname -m)" in
         aarch64|arm64) GO_ARCH="arm64" ;;
@@ -227,11 +229,18 @@ cd "$PROJECT_ROOT"
 go build -o vpsmyth cmd/server/main.go
 
 # Install binary to /opt/vpsmyth
+# Stop a running instance first (reinstall): the binary can't be overwritten while running.
+sudo systemctl stop vpsmyth 2>/dev/null || true
 sudo mkdir -p /opt/vpsmyth
 sudo cp vpsmyth /opt/vpsmyth/
 sudo cp -r ui /opt/vpsmyth/
 # Copy internal config or other assets if needed
 # sudo cp config.json /opt/vpsmyth/ 2>/dev/null || true
+
+# Create the admin account with a one-off run, so the password never lands in
+# the unit file (Environment= lines are world-readable via `systemctl show`).
+# The binary creates the user before it starts listening; timeout then stops it.
+(cd /opt/vpsmyth && ADMIN_USERNAME="$ADMIN_USERNAME" ADMIN_PASSWORD="$ADMIN_PASSWORD" timeout 10 ./vpsmyth >/dev/null 2>&1) || true
 
 # Create systemd service
 echo "Creating systemd service..."
@@ -248,8 +257,6 @@ ExecStart=/opt/vpsmyth/vpsmyth
 Restart=on-failure
 Environment="PORT=2026"
 Environment="PANEL_PATH=${PANEL_PATH}"
-Environment="ADMIN_USERNAME=${ADMIN_USERNAME}"
-Environment="ADMIN_PASSWORD=${ADMIN_PASSWORD}"
 
 [Install]
 WantedBy=multi-user.target
@@ -335,12 +342,9 @@ sudo systemctl reload nginx
 
 echo "Nginx configured to proxy to VPSMyth."
 
-#################################
-# Sudoers — allow vpsmyth to run ufw without a password prompt
-#################################
-echo "ALL ALL=(ALL) NOPASSWD: /usr/sbin/ufw" | sudo tee /etc/sudoers.d/vpsmyth-ufw >/dev/null
-sudo chmod 440 /etc/sudoers.d/vpsmyth-ufw
-echo "UFW sudoers rule added."
+# The service runs as root, so no sudoers rule is needed. Remove the one older
+# installers added — it let every local user run ufw as root.
+sudo rm -f /etc/sudoers.d/vpsmyth-ufw
 
 # Detect server IP for the final message
 SERVER_IP=$(hostname -I | awk '{print $1}')
