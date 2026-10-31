@@ -1,0 +1,744 @@
+/* ===========================================================================
+   VPSMyth — page-level components
+   Everything here composes the primitives in style.css. Page HTML carries no
+   <style> blocks any more, so a token change lands on every screen at once.
+   =========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   Section panels (cron / firewall / security)
+   --------------------------------------------------------------------------- */
+.cron-card,
+.fw-section,
+.security-section {
+    padding: 20px;
+    margin-bottom: 16px;
+}
+
+.cron-card h2,
+.fw-section h2,
+.security-section h2 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    font-size: 0.9375rem;
+    font-weight: 600;
+}
+
+.cron-card h2 svg,
+.fw-section h2 svg,
+.security-section h2 svg {
+    width: 17px;
+    height: 17px;
+    color: var(--faint);
+}
+
+.cron-card > #jobs-container {
+    margin: -4px -6px;
+}
+
+/* ---------------------------------------------------------------------------
+   Databases
+   --------------------------------------------------------------------------- */
+.engine-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.engine-card {
+    padding: 12px 6px;
+    text-align: center;
+    background-color: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    transition: border-color var(--t-fast), background-color var(--t-fast);
+}
+
+.engine-card:hover {
+    border-color: var(--line-strong);
+}
+
+.engine-card.selected {
+    background-color: var(--accent-soft);
+    border-color: var(--accent-500);
+    box-shadow: inset 0 0 0 1px var(--accent-500);
+}
+
+.engine-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+    margin-bottom: 6px;
+}
+
+.engine-icon img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+}
+
+.engine-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--fg);
+}
+
+.engine-sub {
+    margin-top: 1px;
+    font-size: 0.6875rem;
+    color: var(--faint);
+}
+
+.db-card-header {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+
+.db-engine-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    padding: 6px;
+    border-radius: var(--r-md);
+    background-color: var(--raised);
+    border: 1px solid var(--line);
+}
+
+.db-engine-badge img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+.db-name {
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.db-meta {
+    margin-top: 2px;
+    font-size: 0.75rem;
+    color: var(--faint);
+}
+
+.db-status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.db-stats-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding-top: 2px;
+    font-size: 0.75rem;
+    color: var(--muted);
+}
+
+.db-stat {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.db-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: auto;
+    padding-top: 4px;
+}
+
+/* Connection info */
+.conn-block {
+    position: relative;
+    padding: 12px 74px 12px 14px;
+    margin-bottom: 10px;
+    font-size: 0.75rem;
+}
+
+.copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    border-color: rgba(255, 255, 255, 0.14);
+    background-color: rgba(255, 255, 255, 0.06);
+    color: var(--term-fg);
+}
+
+.copy-btn:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.22);
+    color: #fff;
+}
+
+.conn-label {
+    display: block;
+    margin: 18px 0 8px;
+}
+
+.conn-label:first-child {
+    margin-top: 0;
+}
+
+.conn-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.conn-row:last-child {
+    border-bottom: none;
+}
+
+.conn-key {
+    width: 84px;
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    color: var(--faint);
+}
+
+.conn-val {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    overflow-wrap: anywhere;
+}
+
+.pw-mask {
+    cursor: pointer;
+    user-select: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Cron jobs
+   --------------------------------------------------------------------------- */
+.action-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.schedule-preview {
+    min-height: 1.2em;
+    margin-top: 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--accent-ink);
+}
+
+.headers-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.header-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.header-row input {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Firewall
+   --------------------------------------------------------------------------- */
+.status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+
+.btn-toggle.enable {
+    background-color: var(--ok-ink);
+    border-color: var(--ok-ink);
+    color: #fff;
+}
+
+.btn-toggle.enable:hover {
+    filter: brightness(1.08);
+}
+
+.btn-toggle.disable {
+    background-color: transparent;
+    border-color: var(--line);
+    color: var(--muted);
+}
+
+.btn-toggle.disable:hover {
+    background-color: var(--danger-soft);
+    border-color: color-mix(in srgb, var(--danger-400) 45%, transparent);
+    color: var(--danger-ink);
+}
+
+.rule-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+.rule-form .form-field input {
+    width: 150px;
+}
+
+.rule-form .form-field select {
+    width: 130px;
+}
+
+.ipv6-tag {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 5px;
+    border-radius: var(--r-xs);
+    background-color: var(--raised);
+    color: var(--faint);
+    font-family: var(--font-sans);
+    font-size: 0.625rem;
+    letter-spacing: 0.04em;
+}
+
+/* ---------------------------------------------------------------------------
+   Security
+   --------------------------------------------------------------------------- */
+.my-ip-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    border-radius: var(--r-md);
+    background-color: var(--raised);
+    border: 1px solid var(--line);
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    color: var(--fg);
+}
+
+.add-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+}
+
+.add-form .form-field input {
+    width: 220px;
+}
+
+.security-note {
+    background-color: var(--raised);
+}
+
+.security-note ul {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 0.8125rem;
+    line-height: 1.85;
+    color: var(--muted);
+}
+
+.security-note code {
+    padding: 1px 5px;
+    border-radius: var(--r-xs);
+    background-color: var(--panel);
+    border: 1px solid var(--line);
+    font-size: 0.75rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Monitoring
+   --------------------------------------------------------------------------- */
+.range-tabs {
+    display: inline-flex;
+    gap: 3px;
+    padding: 3px;
+    margin-bottom: 16px;
+    background-color: var(--raised);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+}
+
+.range-tab {
+    padding: 5px 12px;
+    border: none;
+    border-radius: var(--r-sm);
+    background: transparent;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    cursor: pointer;
+    transition: background-color var(--t-fast), color var(--t-fast);
+}
+
+.range-tab:hover {
+    color: var(--fg);
+}
+
+.range-tab.active {
+    background-color: var(--panel);
+    color: var(--fg);
+    font-weight: 600;
+    box-shadow: var(--elevation-1);
+}
+
+.chart-card {
+    padding: 16px 18px;
+    margin-bottom: 14px;
+}
+
+.chart-card h3 {
+    margin-bottom: 14px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--faint);
+}
+
+.chart-wrap {
+    position: relative;
+    height: 190px;
+}
+
+.container-grid {
+    margin-bottom: 20px;
+}
+
+.container-card {
+    padding: 15px 17px;
+    cursor: pointer;
+}
+
+.container-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.container-name {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.container-badge {
+    padding: 3px 9px;
+    flex-shrink: 0;
+    border-radius: var(--r-pill);
+    background-color: var(--ok-soft);
+    color: var(--ok-ink);
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.container-badge.stale {
+    background-color: var(--warn-soft);
+    color: var(--warn-ink);
+}
+
+.mini-stats {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+}
+
+.mini-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.mini-stat span {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--faint);
+}
+
+.mini-stat strong {
+    font-family: var(--font-display);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--fg);
+}
+
+.progress-bar {
+    height: 4px;
+    margin-top: 12px;
+    border-radius: var(--r-pill);
+    background-color: var(--sunken);
+    overflow: hidden;
+}
+
+.dark .progress-bar {
+    background-color: var(--raised);
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: var(--r-pill);
+    background-color: var(--accent-500);
+    transition: width 300ms ease;
+}
+
+.progress-fill.warn {
+    background-color: var(--warn-400);
+}
+
+.progress-fill.danger {
+    background-color: var(--danger-400);
+}
+
+.container-chart-wrap {
+    display: none;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+}
+
+.container-chart-wrap.open {
+    display: block;
+}
+
+.container-chart-wrap canvas {
+    height: 140px !important;
+}
+
+.app-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.app-toggle-row:last-child {
+    border-bottom: none;
+}
+
+.app-toggle-row > div:first-child {
+    min-width: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Settings
+   --------------------------------------------------------------------------- */
+.settings-grid {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    align-items: start;
+}
+
+.settings-grid .app-card {
+    gap: 0;
+    padding: 20px;
+}
+
+.settings-grid .app-card h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.settings-grid .app-card h3 svg {
+    width: 17px;
+    height: 17px;
+    color: var(--faint);
+}
+
+.settings-grid .app-card > p {
+    margin-bottom: 18px;
+    font-size: 0.8125rem;
+    color: var(--muted);
+}
+
+.secret-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.8125rem;
+}
+
+.secret-row:last-child {
+    border-bottom: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Login
+   --------------------------------------------------------------------------- */
+body.login {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background-image: radial-gradient(60rem 40rem at 15% -10%, var(--accent-soft) 0%, transparent 60%),
+        radial-gradient(50rem 34rem at 100% 110%, var(--accent-soft) 0%, transparent 55%);
+}
+
+.login-card {
+    width: 100%;
+    max-width: 400px;
+    padding: 34px 32px;
+    background-color: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    box-shadow: var(--elevation-2);
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 28px;
+}
+
+.login-logo {
+    display: block;
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 16px;
+    object-fit: contain;
+}
+
+.login-title {
+    font-size: 1.375rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+}
+
+.login-subtitle {
+    margin-top: 5px;
+    font-size: 0.875rem;
+    color: var(--muted);
+}
+
+.btn-login {
+    width: 100%;
+    height: 42px;
+    margin-top: 22px;
+    font-size: 0.875rem;
+}
+
+.error-message {
+    display: none;
+    margin-bottom: 18px;
+    padding: 10px 13px;
+    border-radius: var(--r-md);
+    background-color: var(--danger-soft);
+    border: 1px solid color-mix(in srgb, var(--danger-400) 45%, transparent);
+    color: var(--danger-ink);
+    font-size: 0.8125rem;
+    text-align: center;
+}
+
+.login-footer {
+    margin-top: 22px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--faint);
+}
+
+/* ---------------------------------------------------------------------------
+   Responsive adjustments
+   --------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+    .cron-card,
+    .fw-section,
+    .security-section {
+        padding: 16px;
+    }
+
+    .engine-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .rule-form,
+    .add-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .rule-form .form-field input,
+    .rule-form .form-field select,
+    .add-form .form-field input {
+        width: 100%;
+    }
+
+    .rule-form .btn-add-rule,
+    .add-form .btn-add {
+        width: 100%;
+    }
+
+    .status-bar > div {
+        width: 100%;
+    }
+
+    .status-bar .btn-toggle {
+        flex: 1;
+    }
+
+    .range-tabs {
+        display: flex;
+        width: 100%;
+    }
+
+    .range-tab {
+        flex: 1;
+        text-align: center;
+        padding-inline: 4px;
+    }
+
+    .chart-wrap {
+        height: 165px;
+    }
+
+    .mini-stats {
+        gap: 14px;
+    }
+
+    .login-card {
+        padding: 28px 22px;
+    }
+}

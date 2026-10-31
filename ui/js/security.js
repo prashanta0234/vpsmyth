@@ -32,19 +32,21 @@ function renderWhitelist() {
         return;
     }
 
+    // data-label drives the stacked card layout on narrow screens.
     const rows = whitelist.map(e => `
         <tr>
-            <td>${escHtml(e.cidr)}</td>
-            <td class="label-cell">${escHtml(e.label || '—')}</td>
-            <td class="date-cell">${formatDate(e.created_at)}</td>
-            <td>
+            <td data-label="IP / CIDR">${escHtml(e.cidr)}</td>
+            <td class="label-cell" data-label="Label">${escHtml(e.label || '—')}</td>
+            <td class="date-cell" data-label="Added">${formatDate(e.created_at)}</td>
+            <td data-label="">
                 <button class="btn-delete" data-id="${e.id}" title="Remove">Remove</button>
             </td>
         </tr>
     `).join('');
 
     container.innerHTML = `
-        <table class="whitelist-table">
+        <div class="table-scroll">
+        <table class="whitelist-table stacked-table">
             <thead>
                 <tr>
                     <th>IP / CIDR</th>
@@ -55,6 +57,7 @@ function renderWhitelist() {
             </thead>
             <tbody>${rows}</tbody>
         </table>
+        </div>
     `;
 
     container.querySelectorAll('.btn-delete').forEach(btn => {

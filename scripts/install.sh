@@ -97,20 +97,25 @@ else
 fi
 
 #################################
-# 3. Install Go 1.21+
+# 3. Install Go (must match go.mod)
 #################################
-if ! command -v go >/dev/null 2>&1; then
-    echo "Installing Go..."
-    GO_VERSION="1.21.5"
-    curl -LO "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz"
+GO_VERSION="1.25.5"
+export PATH=/usr/local/go/bin:$PATH
+CURRENT_GO=$(go env GOVERSION 2>/dev/null | sed 's/^go//' || true)
+if [ -z "$CURRENT_GO" ] || [ "$(printf '%s\n' "$GO_VERSION" "$CURRENT_GO" | sort -V | head -n1)" != "$GO_VERSION" ]; then
+    echo "Installing Go ${GO_VERSION} (found: ${CURRENT_GO:-none})..."
+    case "$(uname -m)" in
+        aarch64|arm64) GO_ARCH="arm64" ;;
+        *) GO_ARCH="amd64" ;;
+    esac
+    curl -fLO "https://go.dev/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz"
     sudo rm -rf /usr/local/go
-    sudo tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz
-    echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
-    export PATH=$PATH:/usr/local/go/bin
-    rm go${GO_VERSION}.linux-amd64.tar.gz
+    sudo tar -C /usr/local -xzf go${GO_VERSION}.linux-${GO_ARCH}.tar.gz
+    grep -q '/usr/local/go/bin' ~/.bashrc 2>/dev/null || echo 'export PATH=/usr/local/go/bin:$PATH' >> ~/.bashrc
+    rm go${GO_VERSION}.linux-${GO_ARCH}.tar.gz
     echo "Go installed."
 else
-    echo "Go already installed."
+    echo "Go ${CURRENT_GO} already installed."
 fi
 
 #################################
@@ -219,7 +224,7 @@ fi
 cd "$PROJECT_ROOT"
 
 # Build the binary
-/usr/local/go/bin/go build -o vpsmyth cmd/server/main.go
+go build -o vpsmyth cmd/server/main.go
 
 # Install binary to /opt/vpsmyth
 sudo mkdir -p /opt/vpsmyth
