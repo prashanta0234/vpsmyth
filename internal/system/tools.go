@@ -86,7 +86,7 @@ func InstallDocker() error {
 
 // InstallGo installs Go on the host system.
 func InstallGo() error {
-	goVersion := "1.21.5"
+	goVersion := "1.27.3"
 	installCmd := exec.Command("sh", "-c", fmt.Sprintf("curl -LO https://go.dev/dl/go%s.linux-amd64.tar.gz && sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go%s.linux-amd64.tar.gz && rm go%s.linux-amd64.tar.gz", goVersion, goVersion, goVersion))
 	if err := installCmd.Run(); err != nil {
 		return fmt.Errorf("failed to install Go: %w", err)
@@ -96,7 +96,8 @@ func InstallGo() error {
 
 // LoginDockerHub authenticates with DockerHub using the provided credentials.
 func LoginDockerHub(username, password string) error {
-	cmd := exec.Command("sh", "-c", fmt.Sprintf("echo %s | docker login --username %s --password-stdin", password, username))
+	cmd := exec.Command("docker", "login", "--username", username, "--password-stdin")
+	cmd.Stdin = strings.NewReader(password)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("docker login failed: %w", err)
 	}

@@ -93,7 +93,7 @@ func UpdateAppEnv(appName string, newEnv map[string]string) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
-	if err := os.WriteFile(metaFile, metaData, 0644); err != nil {
+	if err := os.WriteFile(metaFile, metaData, 0600); err != nil {
 		return fmt.Errorf("failed to save metadata: %w", err)
 	}
 
@@ -122,7 +122,7 @@ func UpdateAppEnv(appName string, newEnv map[string]string) error {
 	// Update container ID in metadata
 	meta.ContainerID = string(output[:12])
 	metaData, _ = json.MarshalIndent(meta, "", "  ")
-	os.WriteFile(metaFile, metaData, 0644)
+	os.WriteFile(metaFile, metaData, 0600)
 
 	return nil
 }

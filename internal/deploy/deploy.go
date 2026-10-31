@@ -33,23 +33,31 @@ func DeployNodeDocker(appName string, category string, framework string, repoURL
 	repoDir := filepath.Join(appDir, "repo")
 	metaFile := filepath.Join(baseDir, sanitizedName+".json")
 
+	if strings.HasPrefix(repoURL, "-") {
+		return fmt.Errorf("invalid repository URL")
+	}
+
 	if err := os.MkdirAll(repoDir, 0755); err != nil {
 		return fmt.Errorf("failed to create directories: %w", err)
 	}
+	// Metadata and cloned sources can hold secrets — keep the tree owner-only.
+	os.Chmod(baseDir, 0700)
 
 	fmt.Printf("Cloning repository: %s\n", repoURL)
-	
-	// Fetch GitHub token for private repos
-	token, _ := db.GetGitHubCredentials()
-	cloneURL := repoURL
-	if token != "" && strings.Contains(repoURL, "github.com") {
-		// Inject token into URL: https://<token>@github.com/user/repo
-		cloneURL = strings.Replace(repoURL, "https://github.com", fmt.Sprintf("https://%s@github.com", token), 1)
-	}
 
-	cloneCmd := exec.Command("git", "clone", cloneURL, repoDir)
+	cloneCmd := exec.Command("git", "clone", "--", repoURL, repoDir)
 	if _, err := os.Stat(filepath.Join(repoDir, ".git")); err == nil {
 		cloneCmd = exec.Command("git", "-C", repoDir, "pull")
+	}
+	// Hand the GitHub token to git through a credential helper reading an env
+	// var: it never shows in `ps` or lands in .git/config, goes only to
+	// github.com, and is only sent when GitHub asks (private repos).
+	if token, _ := db.GetGitHubCredentials(); token != "" {
+		cloneCmd.Env = append(os.Environ(),
+			"VPSMYTH_GH_TOKEN="+token,
+			"GIT_CONFIG_COUNT=1",
+			"GIT_CONFIG_KEY_0=credential.https://github.com.helper",
+			`GIT_CONFIG_VALUE_0=!f() { echo username=x-access-token; echo "password=$VPSMYTH_GH_TOKEN"; }; f`)
 	}
 	if err := cloneCmd.Run(); err != nil {
 		return fmt.Errorf("failed to clone/pull repository: %w", err)
@@ -123,7 +131,7 @@ func DeployNodeDocker(appName string, category string, framework string, repoURL
 	if err != nil {
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
-	if err := os.WriteFile(metaFile, metaData, 0644); err != nil {
+	if err := os.WriteFile(metaFile, metaData, 0600); err != nil {
 		return fmt.Errorf("failed to save metadata: %w", err)
 	}
 
@@ -133,6 +141,11 @@ func DeployNodeDocker(appName string, category string, framework string, repoURL
 
 // DeployFromImage pulls a Docker image and runs it as a container.
 func DeployFromImage(appName, imageName string, port int, env map[string]string) error {
+	appName = sanitizeAppName(appName)
+	if appName == "" || imageName == "" || strings.HasPrefix(imageName, "-") {
+		return fmt.Errorf("invalid app or image name")
+	}
+
 	// 1. Pull the image
 	pullCmd := exec.Command("docker", "pull", imageName)
 	if err := pullCmd.Run(); err != nil {
@@ -165,10 +178,10 @@ func DeployFromImage(appName, imageName string, port int, env map[string]string)
 	}
 
 	metaDir := "deployments"
-	os.MkdirAll(metaDir, 0755)
+	os.MkdirAll(metaDir, 0700)
 	metaPath := filepath.Join(metaDir, appName+".json")
 	metaData, _ := json.MarshalIndent(meta, "", "  ")
-	os.WriteFile(metaPath, metaData, 0644)
+	os.WriteFile(metaPath, metaData, 0600)
 
 	return nil
 }

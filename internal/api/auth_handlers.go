@@ -11,12 +11,47 @@ import (
 	"github.com/prashanta0234/vpsmyth/internal/db"
 )
 
+type ipFailures struct {
+	count int
+	first time.Time
+}
+
 var (
-	loginAttempts = make(map[string]int)
+	loginAttempts = make(map[string]*ipFailures)
 	loginMutex    sync.Mutex
 	maxAttempts   = 5
+	maxIPFailures = 10
 	lockoutTime   = 15 * time.Minute
 )
+
+// ipBlocked reports whether ip has hit maxIPFailures within lockoutTime.
+func ipBlocked(ip string) bool {
+	loginMutex.Lock()
+	defer loginMutex.Unlock()
+	f := loginAttempts[ip]
+	if f != nil && time.Since(f.first) > lockoutTime {
+		delete(loginAttempts, ip)
+		return false
+	}
+	return f != nil && f.count >= maxIPFailures
+}
+
+func recordLoginFailure(ip string) {
+	loginMutex.Lock()
+	defer loginMutex.Unlock()
+	if len(loginAttempts) > 10000 {
+		for k, f := range loginAttempts {
+			if time.Since(f.first) > lockoutTime {
+				delete(loginAttempts, k)
+			}
+		}
+	}
+	if f := loginAttempts[ip]; f != nil {
+		f.count++
+	} else {
+		loginAttempts[ip] = &ipFailures{count: 1, first: time.Now()}
+	}
+}
 
 func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -24,16 +59,12 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Simple IP-based rate limiting
-	ip := r.RemoteAddr
-	loginMutex.Lock()
-	if attempts, exists := loginAttempts[ip]; exists && attempts > 10 {
-		loginMutex.Unlock()
+	// RemoteAddr is always Nginx's loopback; rate-limit on the real client IP.
+	ip := realIP(r)
+	if ipBlocked(ip) {
 		http.Error(w, "Too many requests. Please try again later.", http.StatusTooManyRequests)
 		return
 	}
-	loginAttempts[ip]++
-	loginMutex.Unlock()
 
 	var req struct {
 		Username string `json:"username"`
@@ -47,6 +78,8 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	user, err := db.GetUserByUsername(req.Username)
 	if err != nil {
+		auth.DummyVerify(req.Password)
+		recordLoginFailure(ip)
 		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
 		return
 	}
@@ -65,12 +98,16 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil || !match {
 		// Increment failed attempts
 		db.IncrementFailedAttempts(req.Username, maxAttempts, lockoutTime)
+		recordLoginFailure(ip)
 		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
 		return
 	}
 
 	// Reset failed attempts on success
 	db.ResetFailedAttempts(req.Username)
+	loginMutex.Lock()
+	delete(loginAttempts, ip)
+	loginMutex.Unlock()
 
 	token, err := auth.GenerateToken(user.Username)
 	if err != nil {
@@ -84,7 +121,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   false, // Set to true in production with HTTPS
+		Secure:   r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https",
 		SameSite: http.SameSiteStrictMode,
 		Expires:  time.Now().Add(24 * time.Hour),
 	})

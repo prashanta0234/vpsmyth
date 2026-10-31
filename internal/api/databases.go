@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -74,6 +75,8 @@ var engines = map[string]engineDef{
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+var dbNameRe = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,40}$`)
 
 func dockerStatus(containerName string) string {
 	out, err := exec.Command("docker", "inspect",
@@ -173,6 +176,10 @@ func HandleDeployDatabase(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req.Name = strings.TrimSpace(req.Name)
+	if !dbNameRe.MatchString(req.Name) {
+		http.Error(w, "name may only contain letters, numbers, '-' and '_'", http.StatusBadRequest)
+		return
+	}
 	req.Engine = strings.ToLower(strings.TrimSpace(req.Engine))
 	req.BindIP = strings.TrimSpace(req.BindIP)
 
@@ -433,14 +440,14 @@ func HandleDatabaseBackup(w http.ResponseWriter, r *http.Request) {
 	case "mysql":
 		filename = fmt.Sprintf("%s_%s.sql", record.Name, ts)
 		contentType = "application/sql"
-		args = []string{"exec", record.ContainerName,
-			"mysqldump", "-uroot", fmt.Sprintf("-p%s", record.RootPassword),
-			"--all-databases", "--no-tablespaces"}
+		// Password comes from the container's own env so it never appears in `ps`.
+		args = []string{"exec", record.ContainerName, "sh", "-c",
+			`MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump -uroot --all-databases --no-tablespaces`}
 	case "postgres":
 		filename = fmt.Sprintf("%s_%s.sql", record.Name, ts)
 		contentType = "application/sql"
-		args = []string{"exec", "-e", fmt.Sprintf("PGPASSWORD=%s", record.RootPassword),
-			record.ContainerName, "pg_dumpall", "-U", "postgres"}
+		args = []string{"exec", record.ContainerName, "sh", "-c",
+			`PGPASSWORD="$POSTGRES_PASSWORD" exec pg_dumpall -U postgres`}
 	case "mongodb":
 		filename = fmt.Sprintf("%s_%s.archive.gz", record.Name, ts)
 		contentType = "application/gzip"

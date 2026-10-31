@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -22,8 +23,34 @@ const (
 	tokenExpiry = 24 * time.Hour
 )
 
-// JWTSecret should be loaded from a secure location or generated on first run
-var JWTSecret = []byte("vpsmyth-super-secret-key-change-me")
+// JWTSecret is random per process until LoadOrCreateSecret pins it to disk.
+var JWTSecret = func() []byte {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		panic(err)
+	}
+	return b
+}()
+
+// LoadOrCreateSecret reads the JWT signing key from path, or saves the
+// current random key there (0600) on first run.
+func LoadOrCreateSecret(path string) error {
+	data, err := os.ReadFile(path)
+	if err == nil && len(data) >= 32 {
+		JWTSecret = data
+		return nil
+	}
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return os.WriteFile(path, JWTSecret, 0600)
+}
+
+// DummyVerify burns the same time as a real check so unknown usernames
+// can't be detected by response timing.
+func DummyVerify(password string) {
+	argon2.IDKey([]byte(password), make([]byte, saltLength), timeCost, memory, threads, keyLength)
+}
 
 // HashPassword hashes a password using Argon2id.
 func HashPassword(password string) (string, error) {
