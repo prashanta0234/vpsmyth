@@ -109,18 +109,20 @@ function renderRules(rules) {
         return;
     }
 
+    // data-label drives the stacked card layout on narrow screens.
     const rows = rules.map(r => `
         <tr>
-            <td class="num-cell">${r.number}</td>
-            <td>${escHtml(r.to)}${r.is_ipv6 ? '<span class="ipv6-tag">IPv6</span>' : ''}</td>
-            <td class="action-cell"><span class="action-badge ${badgeClass(r.action)}">${escHtml(r.action)}</span></td>
-            <td>${escHtml(r.from)}</td>
-            <td><button class="btn-delete-rule" data-num="${r.number}">Remove</button></td>
+            <td class="num-cell" data-label="#">${r.number}</td>
+            <td data-label="To">${escHtml(r.to)}${r.is_ipv6 ? '<span class="ipv6-tag">IPv6</span>' : ''}</td>
+            <td class="action-cell" data-label="Action"><span class="action-badge ${badgeClass(r.action)}">${escHtml(r.action)}</span></td>
+            <td data-label="From">${escHtml(r.from)}</td>
+            <td data-label=""><button class="btn-delete-rule" data-num="${r.number}">Remove</button></td>
         </tr>
     `).join('');
 
     container.innerHTML = `
-        <table class="rules-table">
+        <div class="table-scroll">
+        <table class="rules-table stacked-table">
             <thead>
                 <tr>
                     <th>#</th>
@@ -132,6 +134,7 @@ function renderRules(rules) {
             </thead>
             <tbody>${rows}</tbody>
         </table>
+        </div>
     `;
 
     container.querySelectorAll('.btn-delete-rule').forEach(btn => {

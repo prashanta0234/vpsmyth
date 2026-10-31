@@ -1,3 +1,25 @@
+// ── Palette ───────────────────────────────────────────────────────────────────
+// Chart colours come from the design tokens so the graphs follow the theme
+// instead of carrying their own hardcoded set.
+
+function token(name, fallback) {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return value || fallback;
+}
+
+const palette = () => ({
+    accent: token('--accent-500', '#7d70f7'),
+    info: token('--info-400', '#45c8e0'),
+    warn: token('--warn-400', '#d9a340'),
+    danger: token('--danger-400', '#e2604f'),
+    ok: token('--ok-400', '#35c48a'),
+    line: token('--line', '#e3e6ec'),
+    faint: token('--faint', '#656d7c'),
+    panel: token('--panel', '#ffffff'),
+    fg: token('--fg', '#0c0f18'),
+    term: token('--term-bg', '#0d1018')
+});
+
 const chartDefaults = {
     responsive: true,
     maintainAspectRatio: false,
@@ -9,13 +31,13 @@ const chartDefaults = {
     plugins: { legend: { display: false } },
     scales: {
         x: {
-            ticks: { maxTicksLimit: 8, font: { size: 10 } },
-            grid: { color: 'rgba(0,0,0,0.05)' }
+            ticks: { maxTicksLimit: 8, font: { size: 10, family: 'JetBrains Mono, monospace' }, color: palette().faint },
+            grid: { color: palette().line }
         },
         y: {
             beginAtZero: true,
-            ticks: { font: { size: 10 } },
-            grid: { color: 'rgba(0,0,0,0.05)' }
+            ticks: { font: { size: 10, family: 'JetBrains Mono, monospace' }, color: palette().faint },
+            grid: { color: palette().line }
         }
     }
 };
@@ -24,12 +46,26 @@ const lineDataset = (label, data, color) => ({
     label,
     data,
     borderColor: color,
-    backgroundColor: color + '20',
+    backgroundColor: color + '1f',
     fill: true,
     tension: 0.3,
     pointRadius: 0,
-    borderWidth: 2,
+    borderWidth: 1.8,
 });
+
+// Repaint axes when the user flips the theme.
+new MutationObserver(function () {
+    const p = palette();
+    [cpuChart, ramChart, diskChart].concat(Object.values(containerCharts || {})).forEach(function (chart) {
+        if (!chart) return;
+        ['x', 'y'].forEach(function (axis) {
+            if (!chart.options.scales[axis]) return;
+            chart.options.scales[axis].grid.color = p.line;
+            chart.options.scales[axis].ticks.color = p.faint;
+        });
+        chart.update('none');
+    });
+}).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
 function fmtTime(ts) {
     const d = new Date(ts * 1000);
@@ -56,9 +92,9 @@ function getTooltipEl() {
         el.id = 'vm-tooltip';
         el.style.cssText = [
             'position:fixed', 'z-index:9999', 'pointer-events:none',
-            'background:#1e293b', 'color:#f1f5f9', 'border-radius:10px',
+            'background:var(--term-bg)', 'color:var(--term-fg)', 'border:1px solid var(--line-strong)', 'border-radius:8px',
             'padding:10px 14px', 'font-size:11px', 'font-family:inherit',
-            'box-shadow:0 8px 30px rgba(0,0,0,0.35)', 'min-width:220px',
+            'box-shadow:var(--elevation-3)', 'min-width:220px',
             'max-width:300px', 'display:none', 'line-height:1.6',
         ].join(';');
         document.body.appendChild(el);
@@ -81,7 +117,7 @@ function buildBreakdownTooltip(context) {
     const sysRam = tooltip.dataPoints?.find(d => d.dataset.label === 'Used MB')?.raw ?? null;
     const sysDisk = tooltip.dataPoints?.find(d => d.dataset.label === 'Used GB')?.raw ?? null;
 
-    let html = `<div style="font-weight:700;margin-bottom:6px;color:#94a3b8">${label}</div>`;
+    let html = `<div style="font-weight:700;margin-bottom:6px;color:var(--faint)">${label}</div>`;
 
     // System summary row
     const sysParts = [];
@@ -89,24 +125,24 @@ function buildBreakdownTooltip(context) {
     if (sysRam !== null) sysParts.push(`RAM <strong>${sysRam} MB</strong>`);
     if (sysDisk !== null) sysParts.push(`Disk <strong>${sysDisk} GB</strong>`);
     if (sysParts.length) {
-        html += `<div style="margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #334155">
+        html += `<div style="margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--line-strong)">
             System: ${sysParts.join(' · ')}
         </div>`;
     }
 
     if (containers.length === 0) {
-        html += `<div style="color:#64748b;font-size:10px">No container data for this point</div>`;
+        html += `<div style="color:var(--faint);font-size:10px">No container data for this point</div>`;
     } else {
-        html += `<div style="font-weight:600;font-size:10px;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Running containers</div>`;
+        html += `<div style="font-weight:600;font-size:10px;color:var(--faint);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Running containers</div>`;
         html += `<table style="width:100%;border-collapse:collapse">
-            <tr style="color:#64748b;font-size:10px">
+            <tr style="color:var(--faint);font-size:10px">
                 <td style="padding:1px 0">Name</td>
                 <td style="padding:1px 4px;text-align:right">CPU%</td>
                 <td style="padding:1px 0;text-align:right">RAM(MB)</td>
             </tr>`;
         containers.forEach(c => {
             const cpuBar = Math.min(c.cpu, 100);
-            const cpuColor = cpuBar >= 80 ? '#ef4444' : cpuBar >= 50 ? '#f59e0b' : '#4ade80';
+            const cpuColor = cpuBar >= 80 ? 'var(--danger-400)' : cpuBar >= 50 ? 'var(--warn-400)' : 'var(--ok-400)';
             html += `<tr>
                 <td style="padding:2px 0;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.container_name}">${c.container_name}</td>
                 <td style="padding:2px 4px;text-align:right;color:${cpuColor};font-weight:600">${c.cpu.toFixed(1)}</td>
@@ -174,17 +210,17 @@ function systemChartOptions(extra = {}) {
 function initSystemCharts() {
     cpuChart = new Chart(document.getElementById('cpu-chart'), {
         type: 'line',
-        data: { labels: [], datasets: [lineDataset('CPU %', [], '#4f46e5')] },
+        data: { labels: [], datasets: [lineDataset('CPU %', [], palette().accent)] },
         options: systemChartOptions({ scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, max: 100 } } }),
     });
     ramChart = new Chart(document.getElementById('ram-chart'), {
         type: 'line',
-        data: { labels: [], datasets: [lineDataset('Used MB', [], '#0ea5e9'), lineDataset('Total MB', [], '#cbd5e1')] },
+        data: { labels: [], datasets: [lineDataset('Used MB', [], palette().info), lineDataset('Total MB', [], palette().line)] },
         options: systemChartOptions(),
     });
     diskChart = new Chart(document.getElementById('disk-chart'), {
         type: 'line',
-        data: { labels: [], datasets: [lineDataset('Used GB', [], '#f59e0b'), lineDataset('Total GB', [], '#e2e8f0')] },
+        data: { labels: [], datasets: [lineDataset('Used GB', [], palette().warn), lineDataset('Total GB', [], palette().line)] },
         options: systemChartOptions(),
     });
 
@@ -343,8 +379,8 @@ async function loadContainerChart(id, range) {
         data: {
             labels,
             datasets: [
-                lineDataset('CPU %', cpuData, '#4f46e5'),
-                lineDataset('RAM MB', memData, '#0ea5e9'),
+                lineDataset('CPU %', cpuData, palette().accent),
+                lineDataset('RAM MB', memData, palette().info),
             ]
         },
         options: {
@@ -388,7 +424,7 @@ async function loadMonitoringApps() {
         row.innerHTML = `
             <div>
                 <div style="font-weight:600;font-size:0.9rem">${app.app_name}</div>
-                <div style="font-size:0.75rem;color:var(--text-secondary,#64748b);margin-top:0.2rem">${app.framework || 'Docker'} · port ${app.port || '—'}</div>
+                <div style="font-size:0.75rem;color:var(--faint);margin-top:0.2rem">${app.framework || 'Docker'} · port ${app.port || '—'}</div>
             </div>
             <label class="toggle-switch" title="${enabled ? 'Disable monitoring' : 'Enable monitoring'}">
                 <input type="checkbox" ${enabled ? 'checked' : ''} data-app="${app.app_name}">

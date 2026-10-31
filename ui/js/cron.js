@@ -97,22 +97,23 @@ function renderJobs(jobs) {
 
         const lastRun = j.last_run_at ? new Date(j.last_run_at).toLocaleString() : '—';
 
+        // data-label drives the stacked card layout on narrow screens.
         return `<tr>
-            <td><strong>${escHtml(j.name)}</strong></td>
-            <td><span class="type-badge ${typeCls}">${typeLabel}</span></td>
-            <td>
+            <td data-label="Name"><strong>${escHtml(j.name)}</strong></td>
+            <td data-label="Type"><span class="type-badge ${typeCls}">${typeLabel}</span></td>
+            <td data-label="Schedule">
                 <span class="schedule-text" title="${escHtml(j.schedule)}">${escHtml(j.schedule)}</span>
-                ${human ? `<br><span style="font-size:0.72rem; color:var(--muted,#94a3b8);">${escHtml(human)}</span>` : ''}
+                ${human ? `<br><span style="font-size:0.72rem; color:var(--faint);">${escHtml(human)}</span>` : ''}
             </td>
-            <td style="font-size:0.8rem; color:var(--muted,#94a3b8);">${lastRun}</td>
-            <td>${statusHtml}</td>
-            <td>
+            <td data-label="Last run" style="font-size:0.8rem; color:var(--faint);">${lastRun}</td>
+            <td data-label="Status">${statusHtml}</td>
+            <td data-label="Enabled">
                 <label class="toggle" title="${j.enabled ? 'Enabled' : 'Disabled'}">
                     <input type="checkbox" ${j.enabled ? 'checked' : ''} data-id="${j.id}" class="toggle-cb">
                     <span class="toggle-slider"></span>
                 </label>
             </td>
-            <td>
+            <td data-label="">
                 <div class="action-group">
                     <button class="btn-action btn-run" data-id="${j.id}" title="Run now">▶ Run</button>
                     <button class="btn-action btn-history" data-id="${j.id}" data-name="${escHtml(j.name)}" title="History">History</button>
@@ -124,7 +125,8 @@ function renderJobs(jobs) {
     }).join('');
 
     container.innerHTML = `
-        <table class="jobs-table">
+        <div class="table-scroll">
+        <table class="jobs-table stacked-table">
             <thead>
                 <tr>
                     <th>Name</th><th>Type</th><th>Schedule</th>
@@ -132,7 +134,8 @@ function renderJobs(jobs) {
                 </tr>
             </thead>
             <tbody>${rows}</tbody>
-        </table>`;
+        </table>
+        </div>`;
 
     container.querySelectorAll('.toggle-cb').forEach(cb => {
         cb.addEventListener('change', () => toggleJob(parseInt(cb.dataset.id), cb.checked));
@@ -223,24 +226,26 @@ function renderHistory(runs) {
         const outputId = `out-${r.id}`;
         const hasOutput = r.output && r.output.trim() !== '';
         return `<tr>
-            <td style="white-space:nowrap;">${d}</td>
-            <td style="white-space:nowrap;">${dur}</td>
-            <td class="${ok ? 'exit-ok' : 'exit-fail'}">${r.exit_code}</td>
-            <td>
+            <td data-label="Time" style="white-space:nowrap;">${d}</td>
+            <td data-label="Duration" style="white-space:nowrap;">${dur}</td>
+            <td data-label="Exit" class="${ok ? 'exit-ok' : 'exit-fail'}">${r.exit_code}</td>
+            <td data-label="Output">
                 ${hasOutput
                     ? `<button class="expand-btn" onclick="toggleOutput('${outputId}')">Show output</button>
                        <pre class="output-pre" id="${outputId}" style="display:none;">${escHtml(r.output)}</pre>`
-                    : '<span style="color:var(--muted,#94a3b8); font-size:0.75rem;">(no output)</span>'
+                    : '<span style="color:var(--faint); font-size:0.75rem;">(no output)</span>'
                 }
             </td>
         </tr>`;
     }).join('');
 
     container.innerHTML = `
-        <table class="history-table">
+        <div class="table-scroll">
+        <table class="history-table stacked-table">
             <thead><tr><th>Time</th><th>Duration</th><th>Exit</th><th>Output</th></tr></thead>
             <tbody>${rows}</tbody>
-        </table>`;
+        </table>
+        </div>`;
 }
 
 function toggleOutput(id) {

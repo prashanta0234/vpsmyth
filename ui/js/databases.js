@@ -79,7 +79,7 @@ function buildCard(d) {
     const disRun = (!stopped) ? 'disabled' : '';
     const disStop = (!running) ? 'disabled' : '';
 
-    const errLine = isError ? `<div class="deploy-progress" style="background:#fef2f2;border-color:#fca5a5;color:#dc2626;font-size:0.78rem;margin-top:0.25rem;word-break:break-all;">${escHtml(d.deploy_error)}</div>` : '';
+    const errLine = isError ? `<div class="deploy-progress error">${escHtml(d.deploy_error)}</div>` : '';
 
     const stats = dbStats[d.id];
     const statsHtml = (isReady && stats) ? `
@@ -98,7 +98,7 @@ function buildCard(d) {
         </div>
         <div class="db-status-row">
             ${statusHtml}
-            <span style="font-size:0.75rem;color:var(--muted,#94a3b8);">${formatDate(d.created_at)}</span>
+            <span class="label">${formatDate(d.created_at)}</span>
         </div>
         ${isDeploying ? '<div class="deploy-progress"><div class="spinner"></div>Pulling image and starting container…</div>' : ''}
         ${errLine}
@@ -182,12 +182,12 @@ let pwVisible = false;
 async function showConnInfo(id, name) {
     pwVisible = false;
     document.getElementById('conn-modal-title').textContent = `Connect — ${name}`;
-    document.getElementById('conn-modal-body').innerHTML = '<p style="color:var(--muted,#94a3b8);font-size:0.875rem;">Loading...</p>';
+    document.getElementById('conn-modal-body').innerHTML = '<p style="color:var(--faint);font-size:0.875rem;">Loading...</p>';
     document.getElementById('conn-modal').classList.add('open');
 
     try {
         const res = await api(`/api/databases/conninfo?id=${id}`);
-        if (!res.ok) { document.getElementById('conn-modal-body').innerHTML = '<p style="color:#ef4444;">Failed to load.</p>'; return; }
+        if (!res.ok) { document.getElementById('conn-modal-body').innerHTML = '<p class="form-error" style="display:block;">Failed to load.</p>'; return; }
         const info = await res.json();
         renderConnInfo(info);
     } catch { /* ignore */ }
@@ -209,11 +209,11 @@ function renderConnInfo(info) {
                 <span class="conn-key">Password</span>
                 <span class="conn-val">
                     <span id="pw-display" class="pw-mask" title="Click to reveal">●●●●●●●●</span>
-                    <button onclick="togglePw('${escHtml(info.password)}')" style="margin-left:0.5rem;font-size:0.72rem;color:#4f46e5;background:none;border:none;cursor:pointer;">Show</button>
+                    <button onclick="togglePw('${escHtml(info.password)}')" class="link-btn" style="margin-left:0.5rem;">Show</button>
                 </span>
             </div>
         </div>
-        <p style="font-size:0.78rem;color:var(--muted,#94a3b8);margin-top:1rem;">
+        <p style="font-size:0.78rem;color:var(--faint);margin-top:1rem;">
             💡 For remote access from your dev machine, use SSH tunneling:<br>
             <code style="font-size:0.75rem;">ssh -L ${info.port}:127.0.0.1:${info.port} user@your-server</code>
         </p>`;
