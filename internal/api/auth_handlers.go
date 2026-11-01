@@ -131,6 +131,9 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleLogout(w http.ResponseWriter, r *http.Request) {
+	if cookie, err := r.Cookie("vpsmyth_token"); err == nil && cookie.Value != "" {
+		auth.RevokeToken(cookie.Value)
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     "vpsmyth_token",
 		Value:    "",

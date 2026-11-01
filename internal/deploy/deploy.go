@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/prashanta0234/vpsmyth/internal/db"
+	"github.com/prashanta0234/vpsmyth/internal/system"
 )
 
 // DeploymentMetadata stores information about a deployed application.
@@ -117,6 +118,9 @@ func DeployNodeDocker(appName string, category string, framework string, repoURL
 	}
 	containerID := string(output[:12]) // Get short container ID
 
+	// Published ports bypass normal ufw rules; open the routed-chain hole.
+	system.UFWRouteAllow(port)
+
 	// 6. Store metadata
 	meta := DeploymentMetadata{
 		AppName:     appName,
@@ -165,6 +169,9 @@ func DeployFromImage(appName, imageName string, port int, env map[string]string)
 	runCmd := exec.Command("docker", runArgs...)
 	if err := runCmd.Run(); err != nil {
 		return fmt.Errorf("failed to run container: %w", err)
+	}
+	if port > 0 {
+		system.UFWRouteAllow(port)
 	}
 
 	// 3. Save metadata

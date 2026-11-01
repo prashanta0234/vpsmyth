@@ -122,6 +122,9 @@ func HandleFirewallEnable(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Incorrect password", http.StatusUnauthorized)
 		return
 	}
+	// Never let enabling the firewall cut off SSH or the panel itself.
+	runUFW("allow", "22/tcp")
+	runUFW("allow", "80/tcp")
 	out, err := runUFW("--force", "enable")
 	if err != nil {
 		http.Error(w, out, http.StatusInternalServerError)
