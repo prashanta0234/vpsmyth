@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	"github.com/prashanta0234/vpsmyth/internal/system"
 )
 
 // StopApp stops the Docker container for the given app.
@@ -46,9 +48,15 @@ func DeleteApp(appName string) error {
 	exec.Command("docker", "stop", sanitizedName).Run()
 	exec.Command("docker", "rm", sanitizedName).Run()
 
-	// 2. Remove metadata file
+	// 2. Close the firewall hole, then remove the metadata file
 	baseDir := "deployments"
 	metaFile := filepath.Join(baseDir, sanitizedName+".json")
+	if data, err := os.ReadFile(metaFile); err == nil {
+		var meta DeploymentMetadata
+		if json.Unmarshal(data, &meta) == nil && meta.Port > 0 {
+			system.UFWRouteDelete(meta.Port)
+		}
+	}
 	os.Remove(metaFile)
 
 	// 3. Remove app directory

@@ -148,7 +148,13 @@ func RegisterRoutes(mux *http.ServeMux) {
 	// SPA Routing
 	uiDir := "ui"
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// ServeMux already redirects unclean paths; belt-and-braces for os.Stat.
+		if strings.Contains(r.URL.Path, "..") {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
 		path := filepath.Join(uiDir, r.URL.Path)
+		// #nosec G703 -- path is ServeMux-cleaned and ".."-guarded above; FileServer re-sanitizes.
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			http.ServeFile(w, r, filepath.Join(uiDir, "index.html"))
 			return

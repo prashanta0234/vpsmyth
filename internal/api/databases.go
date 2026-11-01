@@ -5,13 +5,16 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/prashanta0234/vpsmyth/internal/db"
+	"github.com/prashanta0234/vpsmyth/internal/system"
 )
 
 // ── Engine definitions ────────────────────────────────────────────────────────
@@ -65,8 +68,10 @@ var engines = map[string]engineDef{
 		Image: "redis", Versions: []string{"7-alpine", "7"}, ContainerPort: 6379, DefaultPort: 6379,
 		DataDir: "/data",
 		envVars: func(pass string) []string { return nil },
+		// Password lives in a mounted config file (written by deployDB), not in
+		// the command line, so `docker inspect` / `ps` never show it.
 		extraArgs: func(pass string) []string {
-			return []string{"redis-server", "--requirepass", pass, "--appendonly", "yes"}
+			return []string{"redis-server", "/usr/local/etc/redis/redis.conf"}
 		},
 		connString: func(pass, ip string, port int) string {
 			return fmt.Sprintf("redis://:%s@%s:%d/0", pass, ip, port)
@@ -77,6 +82,26 @@ var engines = map[string]engineDef{
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 var dbNameRe = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,40}$`)
+
+// writeRedisConf writes the password into a root-only conf dir (0700) whose
+// file (0644) is bind-mounted into the container, readable there by the
+// unprivileged redis user but shielded on the host by the directory perms.
+func writeRedisConf(containerName, password string) (string, error) {
+	dir, err := filepath.Abs(filepath.Join("dbconf", containerName))
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return "", err
+	}
+	esc := strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(password)
+	conf := fmt.Sprintf("requirepass \"%s\"\nappendonly yes\n", esc)
+	path := filepath.Join(dir, "redis.conf")
+	if err := os.WriteFile(path, []byte(conf), 0644); err != nil {
+		return "", err
+	}
+	return path, nil
+}
 
 func dockerStatus(containerName string) string {
 	out, err := exec.Command("docker", "inspect",
@@ -117,6 +142,16 @@ func deployDB(record db.ManagedDB) {
 	if env := eng.envVars(record.RootPassword); env != nil {
 		args = append(args, env...)
 	}
+
+	if record.Engine == "redis" {
+		confPath, err := writeRedisConf(record.ContainerName, record.RootPassword)
+		if err != nil {
+			_ = db.UpdateManagedDBDeployStatus(record.ID, "error", "conf failed: "+err.Error())
+			return
+		}
+		args = append(args, "-v", confPath+":/usr/local/etc/redis/redis.conf:ro")
+	}
+
 	args = append(args, image)
 	if extra := eng.extraArgs; extra != nil {
 		args = append(args, extra(record.RootPassword)...)
@@ -127,6 +162,12 @@ func deployDB(record db.ManagedDB) {
 		_ = db.UpdateManagedDBDeployStatus(record.ID, "error",
 			"run failed: "+strings.TrimSpace(string(runOut)))
 		return
+	}
+
+	// Docker's published ports bypass normal ufw rules, so an exposed DB needs
+	// its own routed-chain hole (and gets it closed again on delete).
+	if record.BindIP == "0.0.0.0" {
+		system.UFWRouteAllow(record.Port)
 	}
 
 	_ = db.UpdateManagedDBDeployStatus(record.ID, "ready", "")
@@ -189,6 +230,10 @@ func HandleDeployDatabase(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Password == "" {
 		http.Error(w, "password is required", http.StatusBadRequest)
+		return
+	}
+	if strings.ContainsAny(req.Password, "\n\r\t") {
+		http.Error(w, "password must not contain control characters", http.StatusBadRequest)
 		return
 	}
 	eng, ok := engines[req.Engine]
@@ -304,6 +349,10 @@ func HandleDatabaseAction(w http.ResponseWriter, r *http.Request) {
 		if req.DeleteVolume {
 			exec.Command("docker", "volume", "rm", record.ContainerName+"_data").Run()
 		}
+		if record.BindIP == "0.0.0.0" {
+			system.UFWRouteDelete(record.Port)
+		}
+		os.RemoveAll(filepath.Join("dbconf", record.ContainerName))
 		if err := db.DeleteManagedDB(req.ID); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -451,15 +500,16 @@ func HandleDatabaseBackup(w http.ResponseWriter, r *http.Request) {
 	case "mongodb":
 		filename = fmt.Sprintf("%s_%s.archive.gz", record.Name, ts)
 		contentType = "application/gzip"
-		args = []string{"exec", record.ContainerName,
-			"mongodump",
-			"--username", "admin",
-			"--password", record.RootPassword,
-			"--authenticationDatabase", "admin",
-			"--archive", "--gzip"}
+		// Password comes from the container's own env so it never appears in `ps`.
+		args = []string{"exec", record.ContainerName, "sh", "-c",
+			`exec mongodump --username admin --password "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --archive --gzip`}
 	case "redis":
-		exec.Command("docker", "exec", record.ContainerName,
-			"redis-cli", "-a", record.RootPassword, "--no-auth-warning", "SAVE").Run()
+		// Redis has no password env in the container; feed it via stdin so it
+		// never appears in `ps` on the host or in the container.
+		saveCmd := exec.Command("docker", "exec", "-i", record.ContainerName, "sh", "-c",
+			`read -r REDISCLI_AUTH && export REDISCLI_AUTH && exec redis-cli --no-auth-warning SAVE`)
+		saveCmd.Stdin = strings.NewReader(record.RootPassword + "\n")
+		saveCmd.Run()
 		filename = fmt.Sprintf("%s_%s.rdb", record.Name, ts)
 		contentType = "application/octet-stream"
 		args = []string{"cp", record.ContainerName + ":" + eng.DataDir + "/dump.rdb", "-"}

@@ -3,6 +3,7 @@ package system
 import (
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -92,6 +93,21 @@ func InstallGo() error {
 		return fmt.Errorf("failed to install Go: %w", err)
 	}
 	return nil
+}
+
+// UFWRouteAllow opens a published container port in UFW's routed chain.
+// Docker's DNAT skips normal ufw rules; with the DOCKER-USER block the
+// installer writes to /etc/ufw/after.rules, only `ufw route allow` exposes a
+// container port. Best-effort: a missing or disabled ufw must never fail a deploy.
+func UFWRouteAllow(port int) {
+	exec.Command("ufw", "route", "allow", "proto", "tcp",
+		"from", "any", "to", "any", "port", strconv.Itoa(port)).Run()
+}
+
+// UFWRouteDelete closes the routed-port hole opened by UFWRouteAllow.
+func UFWRouteDelete(port int) {
+	exec.Command("ufw", "--force", "route", "delete", "allow", "proto", "tcp",
+		"from", "any", "to", "any", "port", strconv.Itoa(port)).Run()
 }
 
 // LoginDockerHub authenticates with DockerHub using the provided credentials.

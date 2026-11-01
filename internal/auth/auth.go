@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -44,6 +45,33 @@ func LoadOrCreateSecret(path string) error {
 		return err
 	}
 	return os.WriteFile(path, JWTSecret, 0600)
+}
+
+// ponytail: in-memory denylist — survives nothing but a restart (which rotates
+// nothing; tokens stay valid). Move to the DB if this ever runs multi-process.
+var (
+	revoked   = map[string]time.Time{}
+	revokedMu sync.Mutex
+)
+
+// RevokeToken invalidates a token for its maximum remaining lifetime.
+func RevokeToken(tokenString string) {
+	revokedMu.Lock()
+	defer revokedMu.Unlock()
+	now := time.Now()
+	for t, exp := range revoked {
+		if now.After(exp) {
+			delete(revoked, t)
+		}
+	}
+	revoked[tokenString] = now.Add(tokenExpiry)
+}
+
+func isRevoked(tokenString string) bool {
+	revokedMu.Lock()
+	defer revokedMu.Unlock()
+	exp, ok := revoked[tokenString]
+	return ok && time.Now().Before(exp)
 }
 
 // DummyVerify burns the same time as a real check so unknown usernames
@@ -87,6 +115,9 @@ func VerifyPassword(password, encodedHash string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	if p == 0 || p > 255 {
+		return false, errors.New("invalid hash parameters")
+	}
 
 	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
 	if err != nil {
@@ -97,8 +128,11 @@ func VerifyPassword(password, encodedHash string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	if len(decodedHash) == 0 || len(decodedHash) > 1024 {
+		return false, errors.New("invalid hash length")
+	}
 
-	comparisonHash := argon2.IDKey([]byte(password), salt, t, m, uint8(p), uint32(len(decodedHash)))
+	comparisonHash := argon2.IDKey([]byte(password), salt, t, m, uint8(p), uint32(len(decodedHash))) // #nosec G115 -- p and len guarded above
 
 	return subtle.ConstantTimeCompare(decodedHash, comparisonHash) == 1, nil
 }
@@ -117,6 +151,9 @@ func GenerateToken(username string) (string, error) {
 
 // ValidateToken validates a JWT and returns the username.
 func ValidateToken(tokenString string) (string, error) {
+	if isRevoked(tokenString) {
+		return "", errors.New("token revoked")
+	}
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])

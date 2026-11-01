@@ -116,6 +116,9 @@ func PullAndRunImage(imageName, containerName string, port int, env map[string]s
 	if output, err := runCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to run container: %s: %w", string(output), err)
 	}
+	if port > 0 {
+		UFWRouteAllow(port)
+	}
 
 	return nil
 }
