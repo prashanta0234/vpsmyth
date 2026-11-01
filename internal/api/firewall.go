@@ -183,8 +183,8 @@ func HandleAddFirewallRule(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "action must be allow, deny, or limit", http.StatusBadRequest)
 		return
 	}
-	if req.Port == "" {
-		http.Error(w, "port is required", http.StatusBadRequest)
+	if req.Port == "" && req.FromIP == "" {
+		http.Error(w, "port or from_ip is required", http.StatusBadRequest)
 		return
 	}
 	if req.Proto != "tcp" && req.Proto != "udp" && req.Proto != "any" {
@@ -197,7 +197,10 @@ func HandleAddFirewallRule(w http.ResponseWriter, r *http.Request) {
 		args = append(args, req.Direction)
 	}
 	if req.FromIP != "" {
-		args = append(args, "from", req.FromIP, "to", "any", "port", req.Port)
+		args = append(args, "from", req.FromIP, "to", "any")
+		if req.Port != "" {
+			args = append(args, "port", req.Port)
+		}
 		if req.Proto != "any" {
 			args = append(args, "proto", req.Proto)
 		}

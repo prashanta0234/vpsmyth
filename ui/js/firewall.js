@@ -279,9 +279,10 @@ document.getElementById('btn-disable').addEventListener('click', () => toggleFir
 
 document.getElementById('btn-add-rule').addEventListener('click', () => {
     const port = document.getElementById('f-port').value.trim();
+    const fromIP = document.getElementById('f-from').value.trim();
     const errEl = document.getElementById('rule-error');
-    if (!port) {
-        errEl.textContent = 'Port is required.';
+    if (!port && !fromIP) {
+        errEl.textContent = 'Enter a port, or a From IP to apply the rule to all ports.';
         errEl.style.display = 'block';
         return;
     }
@@ -290,7 +291,7 @@ document.getElementById('btn-add-rule').addEventListener('click', () => {
         document.getElementById('f-direction').value,
         port,
         document.getElementById('f-proto').value,
-        document.getElementById('f-from').value.trim(),
+        fromIP,
     );
 });
 
